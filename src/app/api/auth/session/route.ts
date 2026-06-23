@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { EMPLOYER } from '@/config';
-// Import your master drizzle database client and the schema table we just looked at
-import { db } from '@/lib/db'; 
-import { enterprises } from '@/lib/db/schema'; // Update this path to match your schema file location
+import { db } from '@/lib/db';
+import { enterprises } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 export async function POST(request: Request) {
@@ -14,12 +13,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing key parameter' }, { status: 400 });
     }
 
-    // 1. Direct Master Database Query - completely bypasses Supabase RLS gates
-    let enterprise = await db
+    // 1. Direct Master Database Query - Bypasses Supabase RLS gates entirely
+    const enterprise = await db
       .select({ id: enterprises.id })
       .from(enterprises)
       .where(eq(enterprises.walletAddress, walletAddress))
-      .then((res) => res[0]);
+      .then((res) => res[0]); // Ensure we extract the first record cleanly
 
     let enterpriseId: number;
 
@@ -32,7 +31,7 @@ export async function POST(request: Request) {
           companyName: 'ZetaPay Corporate Client',
           companyEmail: 'company@zetapay.com',
           country: 'US',
-          isActive: true
+          isActive: true,
         })
         .returning({ id: enterprises.id })
         .then((res) => res[0]);
@@ -40,21 +39,43 @@ export async function POST(request: Request) {
       if (!newCompany) {
         throw new Error('Failed to insert new enterprise row into database.');
       }
-      
+
       enterpriseId = newCompany.id;
     } else {
       enterpriseId = enterprise.id;
     }
 
-    // 2. Assign secure server cookies
+    // 2. Safely apply secure session cookies with explicit global visibility path strings
     const cookieStore = await cookies();
-    cookieStore.set('zetaWallet', walletAddress, { httpOnly: true, secure: true, path: '/' });
-    cookieStore.set('zetaRole', EMPLOYER, { httpOnly: true, secure: true, path: '/' });
-    cookieStore.set('enterpriseId', String(enterpriseId), { httpOnly: true, secure: true, path: '/' });
 
-    return NextResponse.json({ success: true, enterpriseId });
-  } catch (error: any) {
+    cookieStore.set('zetaWallet', walletAddress, {
+      path: '/',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+
+    cookieStore.set('zetaRole', EMPLOYER, {
+      path: '/',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    cookieStore.set('enterpriseId', String(enterpriseId), {
+      path: '/',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    const response = NextResponse.json({ success: true, enterpriseId });
+    return response;
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Master database query failure';
+
     console.error('Drizzle Session API Error Context:', error);
-    return NextResponse.json({ error: error?.message || 'Master database query failure' }, { status: 500 });
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

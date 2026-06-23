@@ -1,10 +1,9 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { AUDITOR, EMPLOYER } from '@/config';
 import Cookies from 'js-cookie';
-import { refreshNavbarGlobal } from '@/components/shared/Navbar';
 
 interface WalletContextType {
   walletAddress: string | null;
@@ -12,7 +11,7 @@ interface WalletContextType {
   isConnected: boolean;
   connect: () => Promise<void>;
   disconnect: () => void;
-  refreshUser: (email?: string) => void;
+  refreshUser: (walletOrEmail?: string) => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -64,8 +63,6 @@ export function Providers({ children }: { children: ReactNode }) {
       setWalletAddress(mockAddress);
       Cookies.set('zetaWallet', mockAddress, { expires: 7, path: '/' });
       setRoleCookie(EMPLOYER);
-
-      refreshNavbarGlobal();
     } catch (error) {
       console.error('Connection failed:', error);
     } finally {
@@ -79,24 +76,13 @@ export function Providers({ children }: { children: ReactNode }) {
     Cookies.remove('zetaWallet', { path: '/' });
     Cookies.remove('auditorSession', { path: '/' });
     router.push('/');
-
-    refreshNavbarGlobal();
   };
 
-  const refreshUser = (email?: string) => {
-    const savedRole = Cookies.get('zetaRole');
-    const savedAuditorSession = Cookies.get('auditorSession');
-
-    if (savedRole === 'auditor' && savedAuditorSession) {
-      try {
-        const session = JSON.parse(decodeURIComponent(savedAuditorSession));
-        setWalletAddress(email || session.email || 'auditor@company.com');
-      } catch {
-        setWalletAddress(email || 'auditor@company.com');
-      }
-      setRoleCookie(AUDITOR);
-
-      refreshNavbarGlobal();
+  const refreshUser = (walletOrEmail?: string) => {
+    if (walletOrEmail) {
+      setWalletAddress(walletOrEmail);
+    } else {
+      setWalletAddress(getInitialWalletAddress());
     }
   };
 

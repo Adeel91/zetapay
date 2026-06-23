@@ -11,9 +11,14 @@ export async function initializeEmployerSession(publicKey: string): Promise<bool
     await stellarServer.loadAccount(publicKey);
 
     const cookieStore = await cookies();
-    
+
     // Save authentication details in matching layout infrastructure fields
-    cookieStore.set('zetaWallet', publicKey, { expires: 7, path: '/', httpOnly: true, secure: true });
+    cookieStore.set('zetaWallet', publicKey, {
+      expires: 7,
+      path: '/',
+      httpOnly: true,
+      secure: true,
+    });
     cookieStore.set('zetaRole', EMPLOYER, { expires: 7, path: '/', httpOnly: true, secure: true });
 
     return true;

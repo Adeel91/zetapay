@@ -22,8 +22,7 @@ export async function GET(request: Request) {
     let accountDetails = null;
     try {
       accountDetails = await stellarServer.loadAccount(walletAddress);
-    } catch (err) {
-      // Horizon loadAccount throws a 404 error if an account is unfunded or empty
+    } catch {
       console.log('Target account is empty or unfunded.');
     }
 
@@ -47,10 +46,13 @@ export async function GET(request: Request) {
       usdc: usdcBalance,
       isFunded: true,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Master database query failure';
+
     console.error('Balance endpoint failure:', error);
+
     return NextResponse.json(
-      { error: error?.message || 'Failed fetching ledger asset balances' },
+      { error: errorMessage || 'Failed fetching ledger asset balances' },
       { status: 500 }
     );
   }

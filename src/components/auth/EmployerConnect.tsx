@@ -4,11 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Wallet, ArrowLeft, CheckCircle, Building2, AlertCircle } from 'lucide-react';
 import { AUTH, ROUTES } from '@/config';
-import { isFreighterAvailable } from '@/lib/stellar/freighter';
-import { getFreighterPublicKey } from '@/lib/stellar/freighter';
+import { isFreighterAvailable, getFreighterPublicKey } from '@/lib/stellar/freighter';
+import { useWallet } from '@/app/providers';
 
 export default function EmployerConnect() {
   const router = useRouter();
+  const { refreshUser } = useWallet();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +34,7 @@ export default function EmployerConnect() {
       const publicKey = await getFreighterPublicKey();
       setWalletAddress(publicKey);
 
-      // 3. Delegate session management, Supabase mutation logic, and cookies to the server
+      // 3. Delegate session management and database checks to the server
       const sessionResponse = await fetch('/api/auth/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -43,29 +44,40 @@ export default function EmployerConnect() {
       const sessionData = await sessionResponse.json();
 
       if (!sessionResponse.ok) {
-        throw new Error(sessionData.error || 'Server rejected wallet authorization session initialization.');
+        throw new Error(
+          sessionData.error || 'Server rejected wallet authorization session initialization.'
+        );
       }
 
-      // 4. NEW: Query your live on-chain balances to confirm network activation state
+      // 4. Query live on-chain balances to confirm network activation state
       const balanceResponse = await fetch(`/api/stellar/balance?wallet=${publicKey}`);
       const balanceData = await balanceResponse.json();
 
       if (!balanceResponse.ok) {
         console.warn('Could not read wallet ledger tracks:', balanceData.error);
       } else {
-        console.log(`Successfully indexed ledger: XLM: ${balanceData.xlm}, USDC: ${balanceData.usdc}`);
+        console.log(
+          `Successfully indexed ledger: XLM: ${balanceData.xlm}, USDC: ${balanceData.usdc}`
+        );
       }
 
-      // 5. Update status states upon success
+      // 5. Force client layout context sync right after verification checks succeed
+      refreshUser(publicKey);
       setIsConnected(true);
 
-      // 6. Force a full reload directly into the dashboard context to synchronize server components
-      if (typeof window !== 'undefined') {
-        window.location.href = ROUTES.employer.root;
-      }
-    } catch (err: any) {
+      // 6. Force Next.js router to refresh server data layout nodes before changing routes
+      router.refresh();
+
+      // 7. Route cleanly using Next.js framework state engine to prevent layout unmounting wipes
+      setTimeout(() => {
+        router.push(ROUTES.employer.root);
+      }, 800);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Connection failed';
       console.error('Connection failed:', err);
-      setError(err.message || 'Failed to authenticate wallet. Please approve the prompt and try again.');
+      setError(
+        errorMessage || 'Failed to authenticate wallet. Please approve the prompt and try again.'
+      );
     } finally {
       setIsConnecting(false);
     }
@@ -95,7 +107,7 @@ export default function EmployerConnect() {
         {error && (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             <div className="flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
               <span>{error}</span>
             </div>
           </div>

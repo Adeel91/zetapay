@@ -19,11 +19,16 @@ type HorizonBalanceItem = Horizon.AccountResponse['balances'][number];
 /**
  * Cleanly reads the native or USDC balance from a loaded Horizon AccountResponse structure
  */
-export function extractBalance(account: Horizon.AccountResponse, assetType: 'native' | 'USDC'): string {
+export function extractBalance(
+  account: Horizon.AccountResponse,
+  assetType: 'native' | 'USDC'
+): string {
   // Fix 2: Provide the inferred layout type to the find loop item to safely support type checks
   const target = account.balances.find((b: HorizonBalanceItem) => {
     if (assetType === 'native') return b.asset_type === 'native';
-    return 'asset_code' in b && b.asset_code === USDC_ASSET.code && b.asset_issuer === USDC_ASSET.issuer;
+    return (
+      'asset_code' in b && b.asset_code === USDC_ASSET.code && b.asset_issuer === USDC_ASSET.issuer
+    );
   });
   return target ? target.balance : '0';
 }

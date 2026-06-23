@@ -33,7 +33,7 @@ const getUserInfoFromCookies = (): UserInfo => {
 
   if (role === EMPLOYER && wallet) {
     return {
-      label: `${wallet.slice(0, 6)}...${wallet.slice(-4)}`,
+      label: `${wallet.slice(0, 8)} ... ${wallet.slice(-8)}`,
       icon: 'Wallet',
       type: EMPLOYER,
     };
@@ -74,6 +74,7 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
   const isAuthPage = pathname === AUTH || pathname?.startsWith(`${AUTH}/`);
   const isLanding = pathname === '/';
 
+  // Register refresh callback
   useEffect(() => {
     refreshCallback = () => {
       const newUserInfo = getUserInfoFromCookies();
@@ -84,12 +85,13 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
     };
   }, []);
 
+  // Poll for cookie changes
   useEffect(() => {
     const handleCookieChange = () => {
       setUserInfo(getUserInfoFromCookies());
     };
 
-    const interval = setInterval(handleCookieChange, 2000);
+    const interval = setInterval(handleCookieChange, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -157,9 +159,7 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5">
             <Icon className="h-3.5 w-3.5 text-slate-500" />
-            <span className="text-xs text-slate-600">
-              {userInfo.type}: {userInfo.label}
-            </span>
+            <span className="text-xs text-slate-600">{userInfo.label}</span>
           </div>
           <button
             onClick={handleLogout}
@@ -196,9 +196,7 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
             Dashboard
           </Link>
           <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-600">
-            <span>
-              {userInfo.type}: {userInfo.label}
-            </span>
+            <span>{userInfo.label}</span>
           </div>
           <button
             onClick={handleLogout}

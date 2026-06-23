@@ -29,7 +29,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   if (role === EMPLOYER && wallet) {
     userInfo = {
-      label: `${wallet.slice(0, 6)}...${wallet.slice(-4)}`,
+      label: `${wallet.slice(0, 8)} ... ${wallet.slice(-8)}`,
       icon: 'Wallet' as const,
       type: EMPLOYER,
     };
