@@ -1,13 +1,17 @@
 CREATE TYPE "public"."audit_action" AS ENUM('view_payroll', 'export_data', 'download_report', 'key_generated', 'key_revoked');--> statement-breakpoint
+CREATE TYPE "public"."audit_status" AS ENUM('pending', 'verified', 'failed', 'expired');--> statement-breakpoint
 CREATE TYPE "public"."employee_status" AS ENUM('active', 'inactive', 'terminated', 'on_leave');--> statement-breakpoint
 CREATE TYPE "public"."payroll_status" AS ENUM('draft', 'pending', 'processing', 'completed', 'failed', 'cancelled');--> statement-breakpoint
+CREATE TYPE "public"."person_type" AS ENUM('employee', 'freelancer', 'contractor', 'vendor', 'consultant');--> statement-breakpoint
 CREATE TYPE "public"."tax_filing_status" AS ENUM('single', 'married_joint', 'married_separate', 'head_of_household', 'qualifying_widow');--> statement-breakpoint
+CREATE TYPE "public"."user_role" AS ENUM('employer', 'auditor', 'admin');--> statement-breakpoint
 CREATE TABLE "audit_keys" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"key_hash" varchar(64) NOT NULL,
 	"enterprise_id" integer NOT NULL,
 	"payroll_run_id" integer,
 	"generated_by" varchar(56) NOT NULL,
+	"generated_by_user_id" integer,
 	"expires_at" timestamp with time zone,
 	"is_active" boolean DEFAULT true,
 	"revoked_at" timestamp with time zone,
@@ -22,10 +26,12 @@ CREATE TABLE "audit_keys" (
 --> statement-breakpoint
 CREATE TABLE "audit_logs" (
 	"id" serial PRIMARY KEY NOT NULL,
+	"user_id" integer,
 	"audit_key" varchar(64) NOT NULL,
 	"payroll_run_id" integer,
 	"enterprise_id" integer,
 	"action" "audit_action" NOT NULL,
+	"status" "audit_status" DEFAULT 'pending',
 	"ip_address" varchar(45),
 	"user_agent" text,
 	"location" varchar(100),
@@ -39,18 +45,14 @@ CREATE TABLE "employees" (
 	"enterprise_id" integer NOT NULL,
 	"wallet_address" varchar(56) NOT NULL,
 	"email" varchar(255),
-	"first_name" varchar(100),
-	"last_name" varchar(100),
-	"full_name" varchar(200),
+	"full_name" varchar(200) NOT NULL,
+	"type" "person_type" DEFAULT 'employee',
 	"status" "employee_status" DEFAULT 'active',
+	"title" varchar(255),
 	"tax_filing_status" "tax_filing_status" DEFAULT 'single',
 	"allowances" integer DEFAULT 0,
 	"additional_withholding" numeric(10, 2) DEFAULT '0',
 	"is_exempt" boolean DEFAULT false,
-	"department" varchar(100),
-	"position" varchar(100),
-	"hire_date" timestamp with time zone,
-	"termination_date" timestamp with time zone,
 	"encrypted_personal_info" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -168,6 +170,21 @@ CREATE TABLE "transaction_logs" (
 	CONSTRAINT "transaction_logs_tx_hash_unique" UNIQUE("tx_hash")
 );
 --> statement-breakpoint
+CREATE TABLE "users" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"enterprise_id" integer,
+	"email" varchar(255) NOT NULL,
+	"name" varchar(255) NOT NULL,
+	"password_hash" text NOT NULL,
+	"role" "user_role" DEFAULT 'auditor',
+	"wallet_address" varchar(56),
+	"is_active" boolean DEFAULT true,
+	"last_login_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "users_email_unique" UNIQUE("email")
+);
+--> statement-breakpoint
 CREATE TABLE "zk_proofs" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"payroll_run_id" integer NOT NULL,
@@ -185,6 +202,8 @@ CREATE TABLE "zk_proofs" (
 --> statement-breakpoint
 ALTER TABLE "audit_keys" ADD CONSTRAINT "audit_keys_enterprise_id_enterprises_id_fk" FOREIGN KEY ("enterprise_id") REFERENCES "public"."enterprises"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "audit_keys" ADD CONSTRAINT "audit_keys_payroll_run_id_payroll_runs_id_fk" FOREIGN KEY ("payroll_run_id") REFERENCES "public"."payroll_runs"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
+ALTER TABLE "audit_keys" ADD CONSTRAINT "audit_keys_generated_by_user_id_users_id_fk" FOREIGN KEY ("generated_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_payroll_run_id_payroll_runs_id_fk" FOREIGN KEY ("payroll_run_id") REFERENCES "public"."payroll_runs"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_enterprise_id_enterprises_id_fk" FOREIGN KEY ("enterprise_id") REFERENCES "public"."enterprises"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "employees" ADD CONSTRAINT "employees_enterprise_id_enterprises_id_fk" FOREIGN KEY ("enterprise_id") REFERENCES "public"."enterprises"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
@@ -195,6 +214,7 @@ ALTER TABLE "payroll_settings" ADD CONSTRAINT "payroll_settings_enterprise_id_en
 ALTER TABLE "transaction_logs" ADD CONSTRAINT "transaction_logs_enterprise_id_enterprises_id_fk" FOREIGN KEY ("enterprise_id") REFERENCES "public"."enterprises"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "transaction_logs" ADD CONSTRAINT "transaction_logs_payroll_run_id_payroll_runs_id_fk" FOREIGN KEY ("payroll_run_id") REFERENCES "public"."payroll_runs"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "transaction_logs" ADD CONSTRAINT "transaction_logs_payroll_employee_id_payroll_employees_id_fk" FOREIGN KEY ("payroll_employee_id") REFERENCES "public"."payroll_employees"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
+ALTER TABLE "users" ADD CONSTRAINT "users_enterprise_id_enterprises_id_fk" FOREIGN KEY ("enterprise_id") REFERENCES "public"."enterprises"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "zk_proofs" ADD CONSTRAINT "zk_proofs_payroll_run_id_payroll_runs_id_fk" FOREIGN KEY ("payroll_run_id") REFERENCES "public"."payroll_runs"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 CREATE INDEX "idx_audit_keys_hash" ON "audit_keys" USING btree ("key_hash");--> statement-breakpoint
 CREATE INDEX "idx_audit_keys_enterprise" ON "audit_keys" USING btree ("enterprise_id");--> statement-breakpoint
@@ -203,14 +223,17 @@ CREATE INDEX "idx_audit_keys_active" ON "audit_keys" USING btree ("is_active");-
 CREATE INDEX "idx_audit_keys_expires" ON "audit_keys" USING btree ("expires_at");--> statement-breakpoint
 CREATE INDEX "idx_audit_keys_enterprise_active" ON "audit_keys" USING btree ("enterprise_id","is_active");--> statement-breakpoint
 CREATE INDEX "idx_audit_logs_key" ON "audit_logs" USING btree ("audit_key");--> statement-breakpoint
+CREATE INDEX "idx_audit_logs_user" ON "audit_logs" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "idx_audit_logs_payroll" ON "audit_logs" USING btree ("payroll_run_id");--> statement-breakpoint
 CREATE INDEX "idx_audit_logs_enterprise" ON "audit_logs" USING btree ("enterprise_id");--> statement-breakpoint
 CREATE INDEX "idx_audit_logs_action" ON "audit_logs" USING btree ("action");--> statement-breakpoint
+CREATE INDEX "idx_audit_logs_status" ON "audit_logs" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "idx_audit_logs_date" ON "audit_logs" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "idx_audit_logs_key_action" ON "audit_logs" USING btree ("audit_key","action");--> statement-breakpoint
 CREATE INDEX "idx_employees_enterprise" ON "employees" USING btree ("enterprise_id");--> statement-breakpoint
 CREATE INDEX "idx_employees_wallet" ON "employees" USING btree ("wallet_address");--> statement-breakpoint
 CREATE INDEX "idx_employees_email" ON "employees" USING btree ("email");--> statement-breakpoint
+CREATE INDEX "idx_employees_type" ON "employees" USING btree ("type");--> statement-breakpoint
 CREATE INDEX "idx_employees_status" ON "employees" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "idx_employees_enterprise_status" ON "employees" USING btree ("enterprise_id","status");--> statement-breakpoint
 CREATE INDEX "idx_enterprises_wallet" ON "enterprises" USING btree ("wallet_address");--> statement-breakpoint
@@ -238,6 +261,9 @@ CREATE INDEX "idx_transactions_to" ON "transaction_logs" USING btree ("to_addres
 CREATE INDEX "idx_transactions_status" ON "transaction_logs" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "idx_transactions_date" ON "transaction_logs" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "idx_transactions_from_to" ON "transaction_logs" USING btree ("from_address","to_address");--> statement-breakpoint
+CREATE INDEX "idx_users_email" ON "users" USING btree ("email");--> statement-breakpoint
+CREATE INDEX "idx_users_role" ON "users" USING btree ("role");--> statement-breakpoint
+CREATE INDEX "idx_users_enterprise" ON "users" USING btree ("enterprise_id");--> statement-breakpoint
 CREATE INDEX "idx_zk_proofs_payroll" ON "zk_proofs" USING btree ("payroll_run_id");--> statement-breakpoint
 CREATE INDEX "idx_zk_proofs_hash" ON "zk_proofs" USING btree ("proof_hash");--> statement-breakpoint
 CREATE INDEX "idx_zk_proofs_valid" ON "zk_proofs" USING btree ("is_valid");--> statement-breakpoint

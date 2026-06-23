@@ -9,9 +9,6 @@ export interface ConnectedEmployerWallet {
   usdcBalance: string;
 }
 
-/**
- * Handles the full client-side interface workflow for fetching a wallet connection profile
- */
 export async function connectEmployerWallet(): Promise<ConnectedEmployerWallet> {
   const walletConnected = await isFreighterAvailable();
   if (!walletConnected) {
@@ -20,11 +17,9 @@ export async function connectEmployerWallet(): Promise<ConnectedEmployerWallet> 
     );
   }
 
-  // Request public ledger key from Freighter extension
   const publicKey = await getFreighterPublicKey();
 
   try {
-    // Synchronously pull current wallet ledger status parameters via Horizon network
     const accountDetails = await stellarServer.loadAccount(publicKey);
 
     return {

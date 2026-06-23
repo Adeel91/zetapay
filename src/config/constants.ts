@@ -3,6 +3,12 @@ export const AUTH = '/auth';
 export const EMPLOYER = 'employer';
 export const AUDITOR = 'auditor';
 
+export const CONTRACTOR = 'contractor';
+export const CONSULTANT = 'consultant';
+export const FREELANCER = 'freelancer';
+export const VENDOR = 'vendor';
+export const EMPLOYEE = 'employee';
+
 export const ROUTES = {
   auth: {
     root: AUTH,
@@ -43,6 +49,7 @@ export const API = {
   employees: {
     root: '/api/employees',
     detail: (id: string) => `/api/employees/${id}`,
+    byEnterprise: (enterpriseId: number) => `/api/employees?enterpriseId=${enterpriseId}`,
   },
   audit: {
     verify: '/api/audit/verify',

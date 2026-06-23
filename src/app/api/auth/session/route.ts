@@ -13,17 +13,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing key parameter' }, { status: 400 });
     }
 
-    // 1. Direct Master Database Query - Bypasses Supabase RLS gates entirely
     const enterprise = await db
       .select({ id: enterprises.id })
       .from(enterprises)
       .where(eq(enterprises.walletAddress, walletAddress))
-      .then((res) => res[0]); // Ensure we extract the first record cleanly
+      .then((res) => res[0]);
 
     let enterpriseId: number;
 
     if (!enterprise) {
-      // First-time signup sequence: Insert using clean Drizzle camelCase attributes
       const newCompany = await db
         .insert(enterprises)
         .values({
@@ -45,14 +43,13 @@ export async function POST(request: Request) {
       enterpriseId = enterprise.id;
     }
 
-    // 2. Safely apply secure session cookies with explicit global visibility path strings
     const cookieStore = await cookies();
 
     cookieStore.set('zetaWallet', walletAddress, {
       path: '/',
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
     });
 
     cookieStore.set('zetaRole', EMPLOYER, {

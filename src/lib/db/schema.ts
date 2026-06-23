@@ -45,6 +45,18 @@ export const auditActionEnum = pgEnum('audit_action', [
   'key_revoked',
 ]);
 
+export const personTypeEnum = pgEnum('person_type', [
+  'employee',
+  'freelancer',
+  'contractor',
+  'vendor',
+  'consultant',
+]);
+
+export const userRoleEnum = pgEnum('user_role', ['employer', 'auditor', 'admin']);
+
+export const auditStatusEnum = pgEnum('audit_status', ['pending', 'verified', 'failed', 'expired']);
+
 export const enterprises = pgTable(
   'enterprises',
   {
@@ -83,20 +95,16 @@ export const employees = pgTable(
       }),
     walletAddress: varchar('wallet_address', { length: 56 }).notNull(),
     email: varchar('email', { length: 255 }),
-    firstName: varchar('first_name', { length: 100 }),
-    lastName: varchar('last_name', { length: 100 }),
-    fullName: varchar('full_name', { length: 200 }),
+    fullName: varchar('full_name', { length: 200 }).notNull(),
+    type: personTypeEnum('type').default('employee'),
     status: employeeStatusEnum('status').default('active'),
+    title: varchar('title', { length: 255 }),
     taxFilingStatus: taxFilingStatusEnum('tax_filing_status').default('single'),
     allowances: integer('allowances').default(0),
     additionalWithholding: decimal('additional_withholding', { precision: 10, scale: 2 }).default(
       '0'
     ),
     isExempt: boolean('is_exempt').default(false),
-    department: varchar('department', { length: 100 }),
-    position: varchar('position', { length: 100 }),
-    hireDate: timestamp('hire_date', { withTimezone: true }),
-    terminationDate: timestamp('termination_date', { withTimezone: true }),
     encryptedPersonalInfo: text('encrypted_personal_info'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -105,11 +113,37 @@ export const employees = pgTable(
     enterpriseIdx: index('idx_employees_enterprise').on(table.enterpriseId),
     walletIdx: index('idx_employees_wallet').on(table.walletAddress),
     emailIdx: index('idx_employees_email').on(table.email),
+    typeIdx: index('idx_employees_type').on(table.type),
     statusIdx: index('idx_employees_status').on(table.status),
     enterpriseStatusIdx: index('idx_employees_enterprise_status').on(
       table.enterpriseId,
       table.status
     ),
+  })
+);
+
+export const users = pgTable(
+  'users',
+  {
+    id: serial('id').primaryKey(),
+    enterpriseId: integer('enterprise_id').references(() => enterprises.id, {
+      onDelete: 'cascade',
+      onUpdate: 'cascade',
+    }),
+    email: varchar('email', { length: 255 }).unique().notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    passwordHash: text('password_hash').notNull(),
+    role: userRoleEnum('role').default('auditor'),
+    walletAddress: varchar('wallet_address', { length: 56 }),
+    isActive: boolean('is_active').default(true),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    emailIdx: index('idx_users_email').on(table.email),
+    roleIdx: index('idx_users_role').on(table.role),
+    enterpriseIdx: index('idx_users_enterprise').on(table.enterpriseId),
   })
 );
 
@@ -212,6 +246,10 @@ export const auditLogs = pgTable(
   'audit_logs',
   {
     id: serial('id').primaryKey(),
+    userId: integer('user_id').references(() => users.id, {
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    }),
     auditKey: varchar('audit_key', { length: 64 }).notNull(),
     payrollRunId: integer('payroll_run_id').references(() => payrollRuns.id, {
       onDelete: 'set null',
@@ -222,6 +260,7 @@ export const auditLogs = pgTable(
       onUpdate: 'cascade',
     }),
     action: auditActionEnum('action').notNull(),
+    status: auditStatusEnum('status').default('pending'),
     ipAddress: varchar('ip_address', { length: 45 }),
     userAgent: text('user_agent'),
     location: varchar('location', { length: 100 }),
@@ -231,9 +270,11 @@ export const auditLogs = pgTable(
   },
   (table) => ({
     auditKeyIdx: index('idx_audit_logs_key').on(table.auditKey),
+    userIdIdx: index('idx_audit_logs_user').on(table.userId),
     payrollIdx: index('idx_audit_logs_payroll').on(table.payrollRunId),
     enterpriseIdx: index('idx_audit_logs_enterprise').on(table.enterpriseId),
     actionIdx: index('idx_audit_logs_action').on(table.action),
+    statusIdx: index('idx_audit_logs_status').on(table.status),
     dateIdx: index('idx_audit_logs_date').on(table.createdAt),
     keyActionIdx: index('idx_audit_logs_key_action').on(table.auditKey, table.action),
   })
@@ -255,6 +296,10 @@ export const auditKeys = pgTable(
       onUpdate: 'cascade',
     }),
     generatedBy: varchar('generated_by', { length: 56 }).notNull(),
+    generatedByUserId: integer('generated_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    }),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     isActive: boolean('is_active').default(true),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
@@ -384,6 +429,7 @@ export const transactionLogs = pgTable(
 
 export const enterprisesRelations = relations(enterprises, ({ many }) => ({
   employees: many(employees),
+  users: many(users),
   payrollRuns: many(payrollRuns),
   auditLogs: many(auditLogs),
   auditKeys: many(auditKeys),
@@ -397,6 +443,17 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
     references: [enterprises.id],
   }),
   payrollEntries: many(payrollEmployees),
+}));
+
+export const usersRelations = relations(users, ({ one, many }) => ({
+  enterprise: one(enterprises, {
+    fields: [users.enterpriseId],
+    references: [enterprises.id],
+  }),
+  auditLogs: many(auditLogs),
+  generatedAuditKeys: many(auditKeys, {
+    relationName: 'generated_by_user',
+  }),
 }));
 
 export const payrollRunsRelations = relations(payrollRuns, ({ one, many }) => ({
@@ -423,6 +480,10 @@ export const payrollEmployeesRelations = relations(payrollEmployees, ({ one }) =
 }));
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
+  }),
   enterprise: one(enterprises, {
     fields: [auditLogs.enterpriseId],
     references: [enterprises.id],
@@ -441,6 +502,11 @@ export const auditKeysRelations = relations(auditKeys, ({ one }) => ({
   payrollRun: one(payrollRuns, {
     fields: [auditKeys.payrollRunId],
     references: [payrollRuns.id],
+  }),
+  generatedByUser: one(users, {
+    fields: [auditKeys.generatedByUserId],
+    references: [users.id],
+    relationName: 'generated_by_user',
   }),
 }));
 

@@ -20,7 +20,6 @@ export default function EmployerConnect() {
     setIsConnecting(true);
 
     try {
-      // 1. Check if the Freighter browser extension is installed
       const available = await isFreighterAvailable();
       if (!available) {
         setError(
@@ -30,11 +29,9 @@ export default function EmployerConnect() {
         return;
       }
 
-      // 2. Fetch the public key securely via the Freighter API driver
       const publicKey = await getFreighterPublicKey();
       setWalletAddress(publicKey);
 
-      // 3. Delegate session management and database checks to the server
       const sessionResponse = await fetch('/api/auth/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -49,26 +46,22 @@ export default function EmployerConnect() {
         );
       }
 
-      // 4. Query live on-chain balances to confirm network activation state
       const balanceResponse = await fetch(`/api/stellar/balance?wallet=${publicKey}`);
       const balanceData = await balanceResponse.json();
 
       if (!balanceResponse.ok) {
         console.warn('Could not read wallet ledger tracks:', balanceData.error);
       } else {
-        console.log(
+        console.error(
           `Successfully indexed ledger: XLM: ${balanceData.xlm}, USDC: ${balanceData.usdc}`
         );
       }
 
-      // 5. Force client layout context sync right after verification checks succeed
       refreshUser(publicKey);
       setIsConnected(true);
 
-      // 6. Force Next.js router to refresh server data layout nodes before changing routes
       router.refresh();
 
-      // 7. Route cleanly using Next.js framework state engine to prevent layout unmounting wipes
       setTimeout(() => {
         router.push(ROUTES.employer.root);
       }, 800);

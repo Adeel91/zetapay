@@ -74,7 +74,6 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
   const isAuthPage = pathname === AUTH || pathname?.startsWith(`${AUTH}/`);
   const isLanding = pathname === '/';
 
-  // Register refresh callback
   useEffect(() => {
     refreshCallback = () => {
       const newUserInfo = getUserInfoFromCookies();
@@ -85,7 +84,6 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
     };
   }, []);
 
-  // Poll for cookie changes
   useEffect(() => {
     const handleCookieChange = () => {
       setUserInfo(getUserInfoFromCookies());

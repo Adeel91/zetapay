@@ -1,16 +1,8 @@
 'use client';
 
-import {
-  isConnected,
-  requestAccess, // NEW: Mandatory method required to trigger the user interface popup
-  getAddress,
-  signTransaction,
-} from '@stellar/freighter-api';
+import { isConnected, requestAccess, getAddress, signTransaction } from '@stellar/freighter-api';
 import { NETWORK_PASSPHRASE } from './horizon';
 
-/**
- * Checks if the Freighter browser extension is installed and active
- */
 export async function isFreighterAvailable(): Promise<boolean> {
   try {
     const result = await isConnected();
@@ -20,19 +12,14 @@ export async function isFreighterAvailable(): Promise<boolean> {
   }
 }
 
-/**
- * Requests the active public key address from the user's Freighter extension wallet
- */
 export async function getFreighterPublicKey(): Promise<string> {
   try {
-    // 1. Force the UI authorization popup window to display on screen
     const accessResult = await requestAccess();
 
     if (accessResult.error) {
       throw new Error(accessResult.error);
     }
 
-    // 2. Read the confirmed identity string cleanly post-approval
     const result = await getAddress();
 
     if (result.error) {
@@ -51,9 +38,6 @@ export async function getFreighterPublicKey(): Promise<string> {
   }
 }
 
-/**
- * Passes an un-signed XDR string token directly into Freighter for authorization
- */
 export async function signWithFreighter(xdr: string, userAddress: string): Promise<string> {
   try {
     const result = await signTransaction(xdr, {
