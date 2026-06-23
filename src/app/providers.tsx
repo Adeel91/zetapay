@@ -4,6 +4,7 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 import { useRouter } from 'next/navigation';
 import { AUDITOR, EMPLOYER } from '@/config';
 import Cookies from 'js-cookie';
+import { refreshNavbarGlobal } from '@/components/shared/Navbar';
 
 interface WalletContextType {
   walletAddress: string | null;
@@ -26,11 +27,11 @@ export function useWallet() {
 
 const getInitialWalletAddress = (): string | null => {
   if (typeof window === 'undefined') return null;
-  
+
   const savedRole = Cookies.get('zetaRole');
   const savedWallet = Cookies.get('zetaWallet');
   const savedAuditorSession = Cookies.get('auditorSession');
-  
+
   if (savedWallet && savedRole === EMPLOYER) {
     return savedWallet;
   } else if (savedAuditorSession && savedRole === AUDITOR) {
@@ -46,7 +47,9 @@ const getInitialWalletAddress = (): string | null => {
 
 export function Providers({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [walletAddress, setWalletAddress] = useState<string | null>(() => getInitialWalletAddress());
+  const [walletAddress, setWalletAddress] = useState<string | null>(() =>
+    getInitialWalletAddress()
+  );
   const [isConnecting, setIsConnecting] = useState(false);
 
   const setRoleCookie = (role: string) => {
@@ -61,11 +64,8 @@ export function Providers({ children }: { children: ReactNode }) {
       setWalletAddress(mockAddress);
       Cookies.set('zetaWallet', mockAddress, { expires: 7, path: '/' });
       setRoleCookie(EMPLOYER);
-      
-      // Refresh navbar after login
-      if (typeof window !== 'undefined' && (window as any).refreshNavbar) {
-        (window as any).refreshNavbar();
-      }
+
+      refreshNavbarGlobal();
     } catch (error) {
       console.error('Connection failed:', error);
     } finally {
@@ -79,12 +79,14 @@ export function Providers({ children }: { children: ReactNode }) {
     Cookies.remove('zetaWallet', { path: '/' });
     Cookies.remove('auditorSession', { path: '/' });
     router.push('/');
+
+    refreshNavbarGlobal();
   };
 
   const refreshUser = (email?: string) => {
     const savedRole = Cookies.get('zetaRole');
     const savedAuditorSession = Cookies.get('auditorSession');
-    
+
     if (savedRole === 'auditor' && savedAuditorSession) {
       try {
         const session = JSON.parse(decodeURIComponent(savedAuditorSession));
@@ -93,11 +95,8 @@ export function Providers({ children }: { children: ReactNode }) {
         setWalletAddress(email || 'auditor@company.com');
       }
       setRoleCookie(AUDITOR);
-      
-      // Refresh navbar after login
-      if (typeof window !== 'undefined' && (window as any).refreshNavbar) {
-        (window as any).refreshNavbar();
-      }
+
+      refreshNavbarGlobal();
     }
   };
 

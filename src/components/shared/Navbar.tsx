@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Menu, X, LogOut, User, Wallet } from 'lucide-react';
-import { DASHBOARD, AUTH, ROUTES, EMPLOYER } from '@/config';
+import { DASHBOARD, AUTH, ROUTES, EMPLOYER, AUDITOR } from '@/config';
 import { useWallet } from '@/app/providers';
 
 type UserInfo = {
@@ -17,19 +17,81 @@ interface NavbarProps {
   initialUserInfo: UserInfo;
 }
 
-export const refreshNavbarGlobal = () => {};
+const getUserInfoFromCookies = (): UserInfo => {
+  if (typeof window === 'undefined') return null;
+
+  const getCookie = (name: string) => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop()?.split(';').shift();
+    return null;
+  };
+
+  const role = getCookie('zetaRole');
+  const auditorSession = getCookie('auditorSession');
+  const wallet = getCookie('zetaWallet');
+
+  if (role === EMPLOYER && wallet) {
+    return {
+      label: `${wallet.slice(0, 6)}...${wallet.slice(-4)}`,
+      icon: 'Wallet',
+      type: EMPLOYER,
+    };
+  }
+
+  if (role === AUDITOR && auditorSession) {
+    try {
+      const session = JSON.parse(decodeURIComponent(auditorSession));
+      return {
+        label: session.email || 'auditor@company.com',
+        icon: 'User',
+        type: AUDITOR,
+      };
+    } catch {
+      return {
+        label: AUDITOR,
+        icon: 'User',
+        type: AUDITOR,
+      };
+    }
+  }
+
+  return null;
+};
+
+let refreshCallback: (() => void) | null = null;
 
 export function Navbar({ initialUserInfo }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [userInfo, setUserInfo] = useState<UserInfo>(() => {
+    const cookies = getUserInfoFromCookies();
+    return cookies || initialUserInfo;
+  });
   const pathname = usePathname();
-  const { disconnect, isConnected } = useWallet();
-
-  // Fall back to server-side info if client state is not yet logged out
-  const userInfo = isConnected ? initialUserInfo : null;
+  const { disconnect } = useWallet();
 
   const isDashboard = pathname?.startsWith(DASHBOARD);
   const isAuthPage = pathname === AUTH || pathname?.startsWith(`${AUTH}/`);
   const isLanding = pathname === '/';
+
+  useEffect(() => {
+    refreshCallback = () => {
+      const newUserInfo = getUserInfoFromCookies();
+      setUserInfo(newUserInfo);
+    };
+    return () => {
+      refreshCallback = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleCookieChange = () => {
+      setUserInfo(getUserInfoFromCookies());
+    };
+
+    const interval = setInterval(handleCookieChange, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleGetStarted = () => {
     window.location.href = AUTH;
@@ -38,6 +100,7 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
   const handleLogout = () => {
     disconnect();
     setIsOpen(false);
+    setUserInfo(null);
   };
 
   const getDashboardHref = () => {
@@ -47,10 +110,12 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
     return ROUTES.auditor.root;
   };
 
+  const isConnected = !!userInfo;
+
   const renderNavLinks = () => {
     if (isAuthPage) return null;
 
-    if (userInfo) {
+    if (isConnected) {
       return (
         <Link
           href={getDashboardHref()}
@@ -86,7 +151,7 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
   const renderLaunchButton = () => {
     if (isAuthPage) return null;
 
-    if (userInfo) {
+    if (isConnected && userInfo) {
       const Icon = userInfo.icon === 'Wallet' ? Wallet : User;
       return (
         <div className="flex items-center gap-3">
@@ -120,7 +185,7 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
   const renderMobileNavLinks = () => {
     if (isAuthPage) return null;
 
-    if (userInfo) {
+    if (isConnected && userInfo) {
       return (
         <>
           <Link
@@ -204,10 +269,16 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
       </div>
 
       {isOpen && !isAuthPage && (
-        <div className="border-b border-slate-200 bg-white px-4 py-4 md:hidden">
+        <div className="border-t border-slate-200 bg-white px-4 py-4 md:hidden">
           <div className="flex flex-col gap-4">{renderMobileNavLinks()}</div>
         </div>
       )}
     </nav>
   );
 }
+
+export const refreshNavbarGlobal = () => {
+  if (refreshCallback) {
+    refreshCallback();
+  }
+};

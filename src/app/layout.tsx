@@ -13,19 +13,19 @@ export const metadata: Metadata = {
   keywords: 'payroll, stellar, blockchain, zero-knowledge, privacy, enterprise',
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // Read cookies on the server - await the Promise
+type UserInfo = {
+  label: string;
+  icon: 'Wallet' | 'User';
+  type: string;
+} | null;
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
   const role = cookieStore.get('zetaRole')?.value;
   const auditorSession = cookieStore.get('auditorSession')?.value;
   const wallet = cookieStore.get('zetaWallet')?.value;
 
-  // Build user info on the server
-  let userInfo = null;
+  let userInfo: UserInfo = null;
 
   if (role === EMPLOYER && wallet) {
     userInfo = {
@@ -52,7 +52,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
-      <body className="bg-slate-50">
+      <body className="bg-slate-50" suppressHydrationWarning>
         <Providers>
           <Navbar initialUserInfo={userInfo} />
           <main className="pt-16">{children}</main>
