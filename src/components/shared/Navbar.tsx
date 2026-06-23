@@ -3,34 +3,36 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Menu, X, LogOut } from 'lucide-react';
-import { DASHBOARD, ROLE, ROUTES } from '@/config';
+import { Menu, X, LogOut, User, Wallet } from 'lucide-react';
+import { DASHBOARD, AUTH, ROUTES, EMPLOYER } from '@/config';
 import { useWallet } from '@/app/providers';
 
-export function Navbar() {
+type UserInfo = {
+  label: string;
+  icon: 'Wallet' | 'User';
+  type: string;
+} | null;
+
+interface NavbarProps {
+  initialUserInfo: UserInfo;
+}
+
+export const refreshNavbarGlobal = () => {};
+
+export function Navbar({ initialUserInfo }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
-  const { connect, disconnect, isConnecting, isConnected, walletAddress } = useWallet();
+  const { disconnect, isConnected } = useWallet();
+
+  // Fall back to server-side info if client state is not yet logged out
+  const userInfo = isConnected ? initialUserInfo : null;
 
   const isDashboard = pathname?.startsWith(DASHBOARD);
-  const isRolePage = pathname === ROLE;
+  const isAuthPage = pathname === AUTH || pathname?.startsWith(`${AUTH}/`);
   const isLanding = pathname === '/';
 
-  if (isRolePage) return null;
-
-  const handleLaunch = async () => {
-    if (isConnected) {
-      const role = localStorage.getItem('zetaRole');
-      if (role === 'employer') {
-        window.location.href = ROUTES.employer.root;
-      } else if (role === 'auditor') {
-        window.location.href = ROUTES.auditor.root;
-      } else {
-        window.location.href = ROLE;
-      }
-    } else {
-      await connect();
-    }
+  const handleGetStarted = () => {
+    window.location.href = AUTH;
   };
 
   const handleLogout = () => {
@@ -38,11 +40,20 @@ export function Navbar() {
     setIsOpen(false);
   };
 
+  const getDashboardHref = () => {
+    if (userInfo?.type === EMPLOYER) {
+      return ROUTES.employer.root;
+    }
+    return ROUTES.auditor.root;
+  };
+
   const renderNavLinks = () => {
-    if (isConnected) {
+    if (isAuthPage) return null;
+
+    if (userInfo) {
       return (
         <Link
-          href="/dashboard/employer"
+          href={getDashboardHref()}
           className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
         >
           Dashboard
@@ -62,7 +73,7 @@ export function Navbar() {
         )}
         {!isLanding && (
           <Link
-            href="/auditor"
+            href={ROUTES.auth.auditorLogin}
             className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
           >
             Auditor
@@ -73,12 +84,18 @@ export function Navbar() {
   };
 
   const renderLaunchButton = () => {
-    if (isConnected) {
+    if (isAuthPage) return null;
+
+    if (userInfo) {
+      const Icon = userInfo.icon === 'Wallet' ? Wallet : User;
       return (
         <div className="flex items-center gap-3">
-          <span className="font-mono text-xs text-slate-500">
-            {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
-          </span>
+          <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5">
+            <Icon className="h-3.5 w-3.5 text-slate-500" />
+            <span className="text-xs text-slate-600">
+              {userInfo.type}: {userInfo.label}
+            </span>
+          </div>
           <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-all hover:border-red-500 hover:text-red-500"
@@ -92,26 +109,32 @@ export function Navbar() {
 
     return (
       <button
-        onClick={handleLaunch}
-        disabled={isConnecting}
-        className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-600/30 transition-all hover:bg-emerald-700 disabled:opacity-50"
+        onClick={handleGetStarted}
+        className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-600/30 transition-all hover:bg-emerald-700"
       >
-        {isConnecting ? 'Connecting...' : 'Launch App'}
+        Get Started
       </button>
     );
   };
 
   const renderMobileNavLinks = () => {
-    if (isConnected) {
+    if (isAuthPage) return null;
+
+    if (userInfo) {
       return (
         <>
           <Link
-            href="/dashboard/employer"
+            href={getDashboardHref()}
             className="text-sm font-medium text-slate-600 hover:text-emerald-600"
             onClick={() => setIsOpen(false)}
           >
             Dashboard
           </Link>
+          <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-600">
+            <span>
+              {userInfo.type}: {userInfo.label}
+            </span>
+          </div>
           <button
             onClick={handleLogout}
             className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-medium text-red-600"
@@ -136,7 +159,7 @@ export function Navbar() {
         )}
         {!isLanding && (
           <Link
-            href="/auditor"
+            href={ROUTES.auth.auditorLogin}
             className="text-sm font-medium text-slate-600 hover:text-emerald-600"
             onClick={() => setIsOpen(false)}
           >
@@ -145,13 +168,12 @@ export function Navbar() {
         )}
         <button
           onClick={() => {
-            handleLaunch();
+            handleGetStarted();
             setIsOpen(false);
           }}
-          disabled={isConnecting}
-          className="rounded-xl bg-emerald-600 px-5 py-2.5 text-center text-sm font-semibold text-white disabled:opacity-50"
+          className="rounded-xl bg-emerald-600 px-5 py-2.5 text-center text-sm font-semibold text-white"
         >
-          {isConnecting ? 'Connecting...' : 'Launch App'}
+          Get Started
         </button>
       </>
     );
@@ -173,15 +195,17 @@ export function Navbar() {
             {renderLaunchButton()}
           </div>
 
-          <button className="text-slate-900 md:hidden" onClick={() => setIsOpen(!isOpen)}>
-            {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+          {!isAuthPage && (
+            <button className="text-slate-900 md:hidden" onClick={() => setIsOpen(!isOpen)}>
+              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          )}
         </div>
       </div>
 
-      {isOpen && (
-        <div className="border-t border-slate-200 bg-white px-4 py-4 md:hidden">
-          <div className="flex flex-col gap-3">{renderMobileNavLinks()}</div>
+      {isOpen && !isAuthPage && (
+        <div className="border-b border-slate-200 bg-white px-4 py-4 md:hidden">
+          <div className="flex flex-col gap-4">{renderMobileNavLinks()}</div>
         </div>
       )}
     </nav>

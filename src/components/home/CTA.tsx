@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/Button';
 export function CTA() {
   return (
     <section className="relative overflow-hidden bg-slate-900 py-24">
-      <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
       <div className="absolute top-0 right-0 h-[300px] w-[300px] rounded-full bg-emerald-500/10 blur-3xl" />
 
       <div className="relative mx-auto max-w-4xl px-4 text-center">

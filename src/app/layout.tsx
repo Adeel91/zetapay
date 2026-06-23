@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import './globals.css';
 import { Providers } from './providers';
 import { Navbar } from '@/components/shared/Navbar';
 import { Footer } from '@/components/shared/Footer';
+import { EMPLOYER, AUDITOR } from '@/config';
 
 export const metadata: Metadata = {
   title: 'ZetaPay - Global Payroll with Zero-Knowledge Privacy',
@@ -11,12 +13,48 @@ export const metadata: Metadata = {
   keywords: 'payroll, stellar, blockchain, zero-knowledge, privacy, enterprise',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // Read cookies on the server - await the Promise
+  const cookieStore = await cookies();
+  const role = cookieStore.get('zetaRole')?.value;
+  const auditorSession = cookieStore.get('auditorSession')?.value;
+  const wallet = cookieStore.get('zetaWallet')?.value;
+
+  // Build user info on the server
+  let userInfo = null;
+
+  if (role === EMPLOYER && wallet) {
+    userInfo = {
+      label: `${wallet.slice(0, 6)}...${wallet.slice(-4)}`,
+      icon: 'Wallet' as const,
+      type: EMPLOYER,
+    };
+  } else if (role === AUDITOR && auditorSession) {
+    try {
+      const session = JSON.parse(decodeURIComponent(auditorSession));
+      userInfo = {
+        label: session.email || 'auditor@company.com',
+        icon: 'User' as const,
+        type: AUDITOR,
+      };
+    } catch {
+      userInfo = {
+        label: AUDITOR,
+        icon: 'User' as const,
+        type: AUDITOR,
+      };
+    }
+  }
+
   return (
     <html lang="en">
       <body className="bg-slate-50">
         <Providers>
-          <Navbar />
+          <Navbar initialUserInfo={userInfo} />
           <main className="pt-16">{children}</main>
           <Footer />
         </Providers>

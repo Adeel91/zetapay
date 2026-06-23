@@ -1,22 +1,30 @@
 export const DASHBOARD = '/dashboard';
-export const ROLE = '/role';
+export const AUTH = '/auth';
+export const EMPLOYER = 'employer';
+export const AUDITOR = 'auditor';
 
 export const ROUTES = {
+  auth: {
+    root: AUTH,
+    employerConnect: `${AUTH}/${EMPLOYER}/connect`,
+    auditorLogin: `${AUTH}/${AUDITOR}/login`,
+    auditorSignup: `${AUTH}/${AUDITOR}/signup`,
+  },
   employer: {
-    root: `${DASHBOARD}/employer`,
-    payroll: `${DASHBOARD}/employer/payroll`,
-    send: `${DASHBOARD}/employer/payroll/send`,
-    payrollDetail: (id: string) => `${DASHBOARD}/employer/payroll/${id}`,
-    employees: `${DASHBOARD}/employer/employees`,
-    addEmployee: `${DASHBOARD}/employer/employees/add`,
-    history: `${DASHBOARD}/employer/history`,
-    settings: `${DASHBOARD}/employer/settings`,
+    root: `${DASHBOARD}/${EMPLOYER}`,
+    payroll: `${DASHBOARD}/${EMPLOYER}/payroll`,
+    send: `${DASHBOARD}/${EMPLOYER}/payroll/send`,
+    payrollDetail: (id: string) => `${DASHBOARD}/${EMPLOYER}/payroll/${id}`,
+    employees: `${DASHBOARD}/${EMPLOYER}/employees`,
+    addEmployee: `${DASHBOARD}/${EMPLOYER}/employees/add`,
+    history: `${DASHBOARD}/${EMPLOYER}/history`,
+    settings: `${DASHBOARD}/${EMPLOYER}/settings`,
   },
   auditor: {
-    root: `${DASHBOARD}/auditor`,
-    verify: `${DASHBOARD}/auditor/verify`,
-    reports: `${DASHBOARD}/auditor/reports`,
-    history: `${DASHBOARD}/auditor/history`,
+    root: `${DASHBOARD}/${AUDITOR}`,
+    verify: `${DASHBOARD}/${AUDITOR}/verify`,
+    reports: `${DASHBOARD}/${AUDITOR}/reports`,
+    history: `${DASHBOARD}/${AUDITOR}/history`,
   },
 } as const;
 
