@@ -2,25 +2,73 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Wallet, ArrowLeft, CheckCircle, Building2 } from 'lucide-react';
-import { AUTH, EMPLOYER, ROUTES } from '@/config';
-import { useWallet } from '@/app/providers';
-import Cookies from 'js-cookie';
+import { Wallet, ArrowLeft, CheckCircle, Building2, AlertCircle } from 'lucide-react';
+import { AUTH, ROUTES } from '@/config';
+import { isFreighterAvailable } from '@/lib/stellar/freighter';
+import { getFreighterPublicKey } from '@/lib/stellar/freighter';
 
 export default function EmployerConnect() {
   const router = useRouter();
-  const { connect, isConnecting, isConnected } = useWallet();
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
   const handleConnect = async () => {
-    Cookies.set('zetaRole', EMPLOYER, { expires: 7, path: '/' });
+    setError(null);
+    setIsConnecting(true);
 
-    await connect();
-    setShowSuccess(true);
+    try {
+      // 1. Check if the Freighter browser extension is installed
+      const available = await isFreighterAvailable();
+      if (!available) {
+        setError(
+          'Freighter wallet is not active or installed. Please install the extension from freighter.app to continue.'
+        );
+        setIsConnecting(false);
+        return;
+      }
 
-    setTimeout(() => {
-      router.push(ROUTES.employer.root);
-    }, 500);
+      // 2. Fetch the public key securely via the Freighter API driver
+      const publicKey = await getFreighterPublicKey();
+      setWalletAddress(publicKey);
+
+      // 3. Delegate session management, Supabase mutation logic, and cookies to the server
+      const sessionResponse = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: publicKey }),
+      });
+
+      const sessionData = await sessionResponse.json();
+
+      if (!sessionResponse.ok) {
+        throw new Error(sessionData.error || 'Server rejected wallet authorization session initialization.');
+      }
+
+      // 4. NEW: Query your live on-chain balances to confirm network activation state
+      const balanceResponse = await fetch(`/api/stellar/balance?wallet=${publicKey}`);
+      const balanceData = await balanceResponse.json();
+
+      if (!balanceResponse.ok) {
+        console.warn('Could not read wallet ledger tracks:', balanceData.error);
+      } else {
+        console.log(`Successfully indexed ledger: XLM: ${balanceData.xlm}, USDC: ${balanceData.usdc}`);
+      }
+
+      // 5. Update status states upon success
+      setIsConnected(true);
+
+      // 6. Force a full reload directly into the dashboard context to synchronize server components
+      if (typeof window !== 'undefined') {
+        window.location.href = ROUTES.employer.root;
+      }
+    } catch (err: any) {
+      console.error('Connection failed:', err);
+      setError(err.message || 'Failed to authenticate wallet. Please approve the prompt and try again.');
+    } finally {
+      setIsConnecting(false);
+    }
   };
 
   return (
@@ -44,8 +92,26 @@ export default function EmployerConnect() {
           </p>
         </div>
 
-        <div className="mt-8 space-y-4">
-          {isConnected || showSuccess ? (
+        {error && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          </div>
+        )}
+
+        {walletAddress && (
+          <div className="mt-4 rounded-lg bg-slate-50 p-3 text-center">
+            <p className="text-xs text-slate-500">Connected Wallet</p>
+            <p className="font-mono text-sm text-slate-700">
+              {walletAddress.slice(0, 8)}...{walletAddress.slice(-8)}
+            </p>
+          </div>
+        )}
+
+        <div className="mt-6 space-y-4">
+          {isConnected ? (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-6 text-center">
               <CheckCircle className="mx-auto h-12 w-12 text-emerald-600" />
               <p className="mt-2 font-semibold text-emerald-700">Wallet Connected!</p>
@@ -71,9 +137,21 @@ export default function EmployerConnect() {
                 )}
               </button>
 
-              <p className="text-center text-xs text-slate-400">
-                Supported: Freighter Wallet on Stellar
-              </p>
+              <div className="text-center">
+                <p className="text-xs text-slate-400">
+                  Supported: Freighter Wallet on Stellar Testnet
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  <a
+                    href="https://freighter.app"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-600 hover:underline"
+                  >
+                    Install Freighter
+                  </a>
+                </p>
+              </div>
             </>
           )}
         </div>
