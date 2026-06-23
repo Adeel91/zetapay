@@ -16,7 +16,7 @@ export const createClient = async () => {
             cookieStore.set(name, value, options);
           });
         } catch (error) {
-          console.log(error);
+          console.error('There is an issue with supabase server: ', error);
         }
       },
     },
