@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +40,49 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# drizzle
+/drizzle/migrations/meta/
+/drizzle/migrations/*.sql
+!/drizzle/migrations/0000_*.sql
+
+# supabase
+/supabase/.branches
+/supabase/.temp
+
+# stellar
+/.stellar/
+
+# noir
+/circuits/target/
+/circuits/proofs/
+/circuits/verifier/
+
+# rust
+/contracts/target/
+/contracts/Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# logs
+logs/
+*.log
+
+# temporary files
+tmp/
+temp/
+*.tmp
+
+# build artifacts
+dist/
+.storybook-out/
+.vercel/
