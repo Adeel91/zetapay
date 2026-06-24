@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Edit, Trash2, Send } from 'lucide-react';
+import { Edit, Trash2, Send, History } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { DataTable } from '@/components/ui/DataTable';
 import { PersonTypeBadge } from './PersonTypeBadge';
@@ -98,6 +98,9 @@ export function PersonTable({
       className: 'text-right',
       render: (item: Person) => (
         <div className="flex justify-end gap-2">
+          <Link href={`${ROUTES.employer.employees}/${item.id}/payroll`}>
+            <Button variant="ghost" size="sm" icon={<History className="h-4 w-4" />} />
+          </Link>
           <Link href={`${ROUTES.employer.send}?recipient=${item.id}`}>
             <Button variant="ghost" size="sm" icon={<Send className="h-4 w-4" />} />
           </Link>

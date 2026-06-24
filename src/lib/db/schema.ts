@@ -99,6 +99,7 @@ export const employees = pgTable(
     type: personTypeEnum('type').default('employee'),
     status: employeeStatusEnum('status').default('active'),
     title: varchar('title', { length: 255 }),
+    salary: decimal('salary', { precision: 20, scale: 7 }).default('0'),
     taxFilingStatus: taxFilingStatusEnum('tax_filing_status').default('single'),
     allowances: integer('allowances').default(0),
     additionalWithholding: decimal('additional_withholding', { precision: 10, scale: 2 }).default(

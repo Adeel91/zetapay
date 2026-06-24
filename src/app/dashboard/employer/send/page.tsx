@@ -1,61 +1,47 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, Wallet, CheckCircle, Clock, Shield, Users, AlertCircle } from 'lucide-react';
+import { Send, Wallet, CheckCircle, Clock, Shield, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { ROUTES } from '@/config';
-
-interface Person {
-  id: string;
-  name: string;
-  wallet: string;
-  amount: number;
-  type: 'employee' | 'freelancer' | 'contractor' | 'vendor' | 'consultant';
-  email?: string;
-}
-
-const MOCK_PEOPLE: Person[] = [
-  { id: '1', name: 'Alice Johnson', wallet: 'G...1234', amount: 0, type: 'employee' },
-  { id: '2', name: 'Bob Smith', wallet: 'G...5678', amount: 0, type: 'employee' },
-  { id: '3', name: 'John Freelancer', wallet: 'G...3456', amount: 0, type: 'freelancer' },
-  { id: '4', name: 'Sarah Contractor', wallet: 'G...7890', amount: 0, type: 'contractor' },
-];
-
-const TYPE_COLORS = {
-  employee: 'bg-emerald-50 text-emerald-600',
-  freelancer: 'bg-indigo-50 text-indigo-600',
-  contractor: 'bg-orange-50 text-orange-600',
-  vendor: 'bg-purple-50 text-purple-600',
-  consultant: 'bg-pink-50 text-pink-600',
-};
-
-const TYPE_LABELS = {
-  employee: 'Employee',
-  freelancer: 'Freelancer',
-  contractor: 'Contractor',
-  vendor: 'Vendor',
-  consultant: 'Consultant',
-};
+import { ROUTES, API } from '@/config';
+import Cookies from 'js-cookie';
+import type { Person } from '@/types/person';
 
 export default function SendPayment() {
   const router = useRouter();
-  const [people] = useState(MOCK_PEOPLE);
+  const [people, setPeople] = useState<Person[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [txHash] = useState('0x7a3f8b2c9d1e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0');
+  const [loading, setLoading] = useState(true);
   const [walletBalance] = useState(24500);
+
+  const fetchPeople = useCallback(async () => {
+    const enterpriseId = Cookies.get('enterpriseId');
+    if (!enterpriseId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(API.employees.byEnterprise(parseInt(enterpriseId)));
+      const data = await response.json();
+      setPeople(data);
+    } catch (error) {
+      console.error('Error fetching people:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const selectedPerson = people.find((p) => p.id === selectedId);
 
   const handleSend = async () => {
     if (!selectedPerson || !amount || parseFloat(amount) <= 0) return;
-
     setIsSending(true);
-
     try {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       setShowSuccess(true);
@@ -65,6 +51,23 @@ export default function SendPayment() {
       setIsSending(false);
     }
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const triggerFetch = async () => {
+      await Promise.resolve();
+      if (isMounted) {
+        await fetchPeople();
+      }
+    };
+
+    triggerFetch();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchPeople]);
 
   if (showSuccess) {
     return (
@@ -76,9 +79,6 @@ export default function SendPayment() {
         <p className="mt-2 text-slate-500">
           {selectedPerson?.name} • ${parseFloat(amount).toFixed(2)} USDC
         </p>
-        <div className="mt-4 rounded-lg bg-white px-4 py-2 font-mono text-sm text-slate-600">
-          Tx: {txHash.slice(0, 20)}...{txHash.slice(-12)}
-        </div>
         <div className="mt-6 flex gap-4">
           <Button
             onClick={() => {
@@ -91,7 +91,7 @@ export default function SendPayment() {
             Send Another
           </Button>
           <Button variant="outline" onClick={() => router.push(ROUTES.employer.employees)}>
-            View All People
+            View People
           </Button>
         </div>
       </div>
@@ -102,8 +102,8 @@ export default function SendPayment() {
     <div className="space-y-6">
       <PageHeader
         title="Send Payment"
-        description="Send USDC to any person instantly"
-        backLink={{ href: ROUTES.employer.payroll, label: 'Back to Payroll' }}
+        description="Send USDC to any recipient instantly"
+        backLink={{ href: ROUTES.employer.employees, label: 'Back to People' }}
         action={
           <Button
             onClick={handleSend}
@@ -133,55 +133,60 @@ export default function SendPayment() {
           <p className="text-sm text-slate-500">Network</p>
           <p className="text-lg font-semibold text-slate-900">Stellar Testnet</p>
           <p className="flex items-center gap-1 text-xs text-slate-400">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            Connected
+            <span className="h-2 w-2 rounded-full bg-emerald-500" /> Connected
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-sm text-slate-500">ZK Privacy</p>
           <p className="flex items-center gap-2 text-lg font-semibold text-emerald-600">
-            <Shield className="h-5 w-5" />
-            Enabled
+            <Shield className="h-5 w-5" /> Enabled
           </p>
           <p className="text-xs text-slate-400">Amounts masked on-chain</p>
         </div>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <label className="block text-sm font-semibold text-slate-900">Select Person</label>
-        <div className="mt-2 grid gap-2">
-          {people.map((person) => (
-            <button
-              key={person.id}
-              onClick={() => setSelectedId(person.id)}
-              className={`flex items-center justify-between rounded-lg border p-3 transition-all ${
-                selectedId === person.id
-                  ? 'border-emerald-500 bg-emerald-50'
-                  : 'border-slate-200 hover:border-emerald-200'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600">
-                  {person.name.charAt(0)}
-                </div>
-                <div className="text-left">
-                  <p className="font-medium text-slate-900">{person.name}</p>
-                  <p className="font-mono text-xs text-slate-500">{person.wallet}</p>
-                </div>
-              </div>
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[person.type]}`}
+        <label className="block text-sm font-semibold text-slate-900">Select Recipient</label>
+        {loading ? (
+          <div className="mt-4 text-center text-slate-500">Loading...</div>
+        ) : people.length === 0 ? (
+          <div className="mt-4 text-center text-slate-500">
+            No recipients found. Add people first.
+          </div>
+        ) : (
+          <div className="mt-2 grid gap-2">
+            {people.map((person) => (
+              <button
+                key={person.id}
+                onClick={() => setSelectedId(person.id)}
+                className={`flex items-center justify-between rounded-lg border p-3 transition-all ${
+                  selectedId === person.id
+                    ? 'border-emerald-500 bg-emerald-50'
+                    : 'border-slate-200 hover:border-emerald-200'
+                }`}
               >
-                {TYPE_LABELS[person.type]}
-              </span>
-            </button>
-          ))}
-        </div>
-        <div className="mt-4 flex justify-end">
-          <Button variant="outline" size="sm" icon={<Users className="h-4 w-4" />}>
-            View All People
-          </Button>
-        </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600">
+                    {person.name?.charAt(0) || '?'}
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium text-slate-900">{person.name}</p>
+                    <p className="font-mono text-xs text-slate-500">{person.wallet}</p>
+                  </div>
+                </div>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    person.type === 'employee'
+                      ? 'bg-emerald-50 text-emerald-600'
+                      : 'bg-indigo-50 text-indigo-600'
+                  }`}
+                >
+                  {person.type || 'person'}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {selectedPerson && (
@@ -213,36 +218,13 @@ export default function SendPayment() {
           </div>
           {parseFloat(amount) > walletBalance && (
             <p className="mt-2 flex items-center gap-1 text-sm text-red-600">
-              <AlertCircle className="h-4 w-4" />
-              Insufficient balance
+              <AlertCircle className="h-4 w-4" /> Insufficient balance
             </p>
           )}
           <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-            <Clock className="h-3 w-3" />
-            ~2 seconds settlement
+            <Clock className="h-3 w-3" /> ~2 seconds settlement
             <span className="text-slate-300">•</span>
             <span>Fee: ~$0.001</span>
-          </div>
-        </div>
-      )}
-
-      {selectedPerson && amount && parseFloat(amount) > 0 && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Payment Summary</p>
-              <div className="flex items-center gap-4">
-                <p className="text-xl font-bold text-slate-900">{selectedPerson.name}</p>
-                <span className="text-sm text-slate-500">→</span>
-                <p className="font-mono text-sm text-slate-500">{selectedPerson.wallet}</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-emerald-600">
-                ${parseFloat(amount).toFixed(2)}
-              </p>
-              <p className="text-xs text-slate-500">USDC on Stellar</p>
-            </div>
           </div>
         </div>
       )}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPlus, Wallet, Mail, User, Shield, Users } from 'lucide-react';
+import { UserPlus, Wallet, Mail, User, Shield, Users, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ROUTES } from '@/config';
@@ -25,6 +25,7 @@ export function AddPersonForm({
     walletAddress: initialData?.walletAddress || '',
     type: initialData?.type || 'employee',
     title: initialData?.title || '',
+    salary: initialData?.salary || 0,
     taxFilingStatus: initialData?.taxFilingStatus || 'single',
     allowances: initialData?.allowances || 0,
     additionalWithholding: initialData?.additionalWithholding || 0,
@@ -65,6 +66,7 @@ export function AddPersonForm({
           fullName: formData.fullName,
           classification: formData.type,
           title: formData.title,
+          salary: formData.salary,
           taxFilingStatus: formData.taxFilingStatus,
           allowances: formData.allowances,
           additionalWithholding: formData.additionalWithholding,
@@ -191,6 +193,24 @@ export function AddPersonForm({
               <p className="mt-1 text-xs text-slate-500">
                 Stellar address starting with G, 56 characters
               </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Salary</label>
+              <div className="relative mt-1">
+                <DollarSign className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.salary}
+                  onChange={(e) =>
+                    setFormData({ ...formData, salary: parseFloat(e.target.value) || 0 })
+                  }
+                  className="w-full rounded-xl border border-slate-200 py-2.5 pr-4 pl-10 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                  placeholder="5000.00"
+                />
+              </div>
             </div>
 
             <div>

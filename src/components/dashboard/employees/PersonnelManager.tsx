@@ -22,13 +22,11 @@ export function PersonnelManager({
   initialData = [],
   addPersonRoute = ROUTES.employer.addEmployee,
 }: PersonnelManagerProps) {
-  // Use lazy state initialization to prevent immediate layout shifts
   const [people, setPeople] = useState<Person[]>(() => (initialData.length > 0 ? initialData : []));
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | PersonType>('all');
 
-  // Modular fetch function used for manual user refreshes
   const fetchPeople = useCallback(async () => {
     setLoading(true);
     const enterpriseId = Cookies.get('enterpriseId');
@@ -53,14 +51,12 @@ export function PersonnelManager({
     setPeople((prev) => prev.filter((p) => p.id !== id));
   };
 
-  // Safe effect wrapper using an internal async function to decouple state updates from the mount cycle
   useEffect(() => {
     if (initialData.length > 0) return;
 
     let isMounted = true;
 
     const triggerFetch = async () => {
-      // Yield execution line so it doesn't execute synchronously within the effect body
       await Promise.resolve();
       if (isMounted) {
         await fetchPeople();

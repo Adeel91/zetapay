@@ -1,23 +1,25 @@
+// components/ui/Badge.tsx
 'use client';
 
-interface BadgeProps {
-  children: React.ReactNode;
+interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: 'default' | 'success' | 'warning' | 'error' | 'info';
+  children: React.ReactNode;
   className?: string;
 }
 
-export function Badge({ children, variant = 'default', className = '' }: BadgeProps) {
-  const variants = {
-    default: 'bg-muted-bg text-muted',
-    success: 'bg-success/10 text-success',
-    warning: 'bg-yellow-50 text-yellow-600',
-    error: 'bg-red-50 text-red-600',
-    info: 'bg-blue-50 text-blue-600',
+export function Badge({ children, variant = 'default', className = '', ...props }: BadgeProps) {
+  const variantStyles = {
+    default: 'bg-slate-100 text-slate-800',
+    success: 'bg-emerald-50 text-emerald-700',
+    warning: 'bg-yellow-50 text-yellow-700',
+    error: 'bg-red-50 text-red-700',
+    info: 'bg-blue-50 text-blue-700',
   };
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[variant]} ${className} `}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variantStyles[variant]} ${className}`}
+      {...props}
     >
       {children}
     </span>

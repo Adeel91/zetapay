@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
-  DollarSign,
   FileText,
   History,
   Settings,
@@ -17,13 +16,12 @@ import {
   Key,
   Send,
 } from 'lucide-react';
-import { ROUTES } from '@/config';
+import { AUDITOR, EMPLOYER, ROUTES } from '@/config';
 
 const employerNav = [
   { name: 'Dashboard', href: ROUTES.employer.root, icon: LayoutDashboard },
-  { name: 'Payroll', href: ROUTES.employer.payroll, icon: DollarSign },
-  { name: 'Send Payment', href: ROUTES.employer.send, icon: Send },
-  { name: 'Employees', href: ROUTES.employer.employees, icon: Users },
+  { name: 'People', href: ROUTES.employer.employees, icon: Users },
+  { name: 'Send Payment', href: ROUTES.employer.history, icon: Send },
   { name: 'History', href: ROUTES.employer.history, icon: History },
   { name: 'Settings', href: ROUTES.employer.settings, icon: Settings },
 ];
@@ -44,7 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navItems = isEmployer ? employerNav : isAuditor ? auditorNav : [];
 
-  const role = isEmployer ? 'Employer' : isAuditor ? 'Auditor' : '';
+  const role = isEmployer ? EMPLOYER : isAuditor ? AUDITOR : '';
 
   return (
     <div className="min-h-screen bg-slate-50">

@@ -14,6 +14,7 @@ export interface Person {
   email: string;
   type: PersonType;
   title?: string;
+  salary?: number;
   verified: boolean;
   createdAt: string;
 }
@@ -83,6 +84,7 @@ export interface PersonFormData {
   walletAddress: string;
   type: PersonType;
   title: string;
+  salary: number;
   taxFilingStatus: string;
   allowances: number;
   additionalWithholding: number;
@@ -103,6 +105,7 @@ export function getInitialPersonFormData(): PersonFormData {
     walletAddress: '',
     type: EMPLOYEE,
     title: '',
+    salary: 0,
     taxFilingStatus: 'single',
     allowances: 0,
     additionalWithholding: 0,
@@ -119,12 +122,18 @@ interface ApiRecord {
   email?: string | null;
   type?: string | null;
   title?: string | null;
+  salary?: string | number | null;
   status?: string | null;
   verified?: boolean | null;
   createdAt?: string | null;
 }
 
 export function mapApiRecordToPerson(record: ApiRecord): Person {
+  let salary = 0;
+  if (record.salary !== null && record.salary !== undefined) {
+    salary = typeof record.salary === 'string' ? parseFloat(record.salary) : record.salary;
+  }
+
   return {
     id: String(record.id),
     name: record.fullName || record.name || 'Unknown',
@@ -132,6 +141,7 @@ export function mapApiRecordToPerson(record: ApiRecord): Person {
     email: record.email || '',
     type: (record.type as PersonType) || EMPLOYEE,
     title: record.title || undefined,
+    salary,
     verified: record.status === 'active' || record.verified || false,
     createdAt: record.createdAt || new Date().toISOString(),
   };
