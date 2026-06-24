@@ -65,7 +65,6 @@ export default function EmployeePayrollPage({ params }: { params: Promise<{ id: 
       );
     } catch (error) {
       console.error('Error fetching employee payroll:', error);
-      // Set empty state on error
       setPayrollHistory([]);
       setSummary({ totalPayrolls: 0, totalPaid: 0, averagePayment: 0 });
     } finally {

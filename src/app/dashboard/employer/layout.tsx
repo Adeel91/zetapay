@@ -21,7 +21,7 @@ import { AUDITOR, EMPLOYER, ROUTES } from '@/config';
 const employerNav = [
   { name: 'Dashboard', href: ROUTES.employer.root, icon: LayoutDashboard },
   { name: 'People', href: ROUTES.employer.employees, icon: Users },
-  { name: 'Send Payment', href: ROUTES.employer.history, icon: Send },
+  { name: 'Send Payment', href: ROUTES.employer.send, icon: Send },
   { name: 'History', href: ROUTES.employer.history, icon: History },
   { name: 'Settings', href: ROUTES.employer.settings, icon: Settings },
 ];

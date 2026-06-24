@@ -1,4 +1,3 @@
-// components/ui/Card.tsx
 'use client';
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {

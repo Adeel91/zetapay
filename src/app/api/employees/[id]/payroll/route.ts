@@ -1,4 +1,3 @@
-// app/api/employees/[id]/payroll/route.ts
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { db } from '@/lib/db';
@@ -14,7 +13,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Invalid employee ID' }, { status: 400 });
     }
 
-    // Verify enterprise session
     const cookieStore = await cookies();
     const enterpriseIdStr = cookieStore.get('enterpriseId')?.value;
 
@@ -24,11 +22,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     const enterpriseId = parseInt(enterpriseIdStr);
 
-    // ✅ ONE QUERY: Join payroll_runs with payroll_employees
-    // Get all payroll transactions for this employee
     const transactions = await db
       .select({
-        // Payroll run info
         payrollRunId: payrollRuns.id,
         runDate: payrollRuns.runDate,
         periodStart: payrollRuns.periodStart,
@@ -36,7 +31,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
         payrollStatus: payrollRuns.status,
         txHash: payrollRuns.txHash,
 
-        // Transaction info
         transactionId: payrollEmployees.id,
         grossSalary: payrollEmployees.grossSalary,
         netSalary: payrollEmployees.netSalary,
@@ -44,7 +38,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
         status: payrollEmployees.status,
         processedAt: payrollEmployees.processedAt,
 
-        // Employee info
         employeeId: employees.id,
         employeeName: employees.fullName,
         employeeEmail: employees.email,
@@ -59,7 +52,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .orderBy(desc(payrollRuns.runDate))
       .execute();
 
-    // Get employee details
     const employeeRecord = await db
       .select()
       .from(employees)
@@ -71,7 +63,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
 
-    // Format the response
     const formattedTransactions = transactions.map((p) => ({
       id: p.transactionId,
       payrollRunId: p.payrollRunId,
@@ -89,7 +80,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
       },
     }));
 
-    // Calculate summary
     const totalPaid = formattedTransactions.reduce(
       (sum, p) => sum + parseFloat(p.netSalary || '0'),
       0

@@ -1,4 +1,3 @@
-// app/api/employees/[id]/payroll/[runId]/route.ts
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { db } from '@/lib/db';
@@ -24,10 +23,8 @@ export async function GET(request: Request, { params }: { params: { id: string; 
 
     const enterpriseId = parseInt(enterpriseIdStr);
 
-    // Get the specific payroll transaction
     const transaction = await db
       .select({
-        // Payroll run info
         payrollRunId: payrollRuns.id,
         runDate: payrollRuns.runDate,
         periodStart: payrollRuns.periodStart,
@@ -38,7 +35,6 @@ export async function GET(request: Request, { params }: { params: { id: string; 
         totalNet: payrollRuns.totalNet,
         totalTaxWithheld: payrollRuns.totalTaxWithheld,
 
-        // Transaction info
         transactionId: payrollEmployees.id,
         grossSalary: payrollEmployees.grossSalary,
         netSalary: payrollEmployees.netSalary,
@@ -46,7 +42,6 @@ export async function GET(request: Request, { params }: { params: { id: string; 
         status: payrollEmployees.status,
         processedAt: payrollEmployees.processedAt,
 
-        // Employee info
         employeeId: employees.id,
         employeeName: employees.fullName,
         employeeEmail: employees.email,

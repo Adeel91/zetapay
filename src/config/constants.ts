@@ -18,7 +18,7 @@ export const ROUTES = {
   },
   employer: {
     root: `${DASHBOARD}/${EMPLOYER}`,
-    send: `${DASHBOARD}/${EMPLOYER}/payroll/send`,
+    send: `${DASHBOARD}/${EMPLOYER}/send`,
     employees: `${DASHBOARD}/${EMPLOYER}/employees`,
     addEmployee: `${DASHBOARD}/${EMPLOYER}/employees/add`,
     employeePayroll: (id: number) => `${DASHBOARD}/${EMPLOYER}/employees/${id}/payroll`,

@@ -1,14 +1,28 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { stellarServer, extractBalance } from '@/lib/stellar/horizon';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const walletAddress = searchParams.get('wallet');
+    const cookieStore = await cookies();
+    const walletAddress = cookieStore.get('zetaWallet')?.value;
 
     if (!walletAddress) {
       return NextResponse.json(
-        { error: 'Missing required wallet query parameter' },
+        {
+          error: 'Wallet not connected',
+          message: 'Please connect your Freighter wallet first',
+        },
+        { status: 401 }
+      );
+    }
+
+    if (!walletAddress.startsWith('G')) {
+      return NextResponse.json(
+        {
+          error: 'Invalid wallet address',
+          message: 'The wallet address format is invalid',
+        },
         { status: 400 }
       );
     }
@@ -17,7 +31,7 @@ export async function GET(request: Request) {
     try {
       accountDetails = await stellarServer.loadAccount(walletAddress);
     } catch {
-      console.error('Target account is empty or unfunded.');
+      accountDetails = null;
     }
 
     if (!accountDetails) {
@@ -34,17 +48,15 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       wallet: walletAddress,
-      xlm: xlmBalance,
-      usdc: usdcBalance,
+      xlm: xlmBalance || '0.0000000',
+      usdc: usdcBalance || '0.0000000',
       isFunded: true,
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Master database query failure';
-
-    console.error('Balance endpoint failure:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     return NextResponse.json(
-      { error: errorMessage || 'Failed fetching ledger asset balances' },
+      { error: 'Failed to fetch balance', message: errorMessage },
       { status: 500 }
     );
   }

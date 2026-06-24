@@ -19,6 +19,21 @@ export interface Person {
   createdAt: string;
 }
 
+export interface PersonWithSalary extends Person {
+  salary: number;
+  status: 'Active' | 'Inactive' | 'Pending';
+  walletAddress: string;
+  fullName: string;
+}
+
+export interface PersonSearchSelectProps {
+  people: Person[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}
+
 export const TYPE_LABELS: Record<PersonType, string> = {
   [EMPLOYEE]: 'Employee',
   [FREELANCER]: 'Freelancer',

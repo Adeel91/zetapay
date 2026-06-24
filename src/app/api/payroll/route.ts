@@ -5,7 +5,6 @@ import { payrollRuns, payrollEmployees, employees } from '@/lib/db/schema';
 import { eq, inArray, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
-// GET /api/payroll?enterpriseId=123
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -36,7 +35,6 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/payroll
 export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
@@ -55,7 +53,6 @@ export async function POST(request: Request) {
 
     const enterpriseId = parseInt(enterpriseIdStr);
 
-    // Fetch employee details with salary
     const employeeRecords = await db
       .select()
       .from(employees)
@@ -67,13 +64,11 @@ export async function POST(request: Request) {
       )
       .execute();
 
-    // Calculate totals with proper tax
     let totalGross = 0;
     let totalNet = 0;
     let totalTax = 0;
 
     const payrollEntries = employeeRecords.map((emp) => {
-      // ✅ FIX: Handle null, string, and number
       let gross = 0;
       if (emp.salary !== null && emp.salary !== undefined) {
         gross = typeof emp.salary === 'string' ? parseFloat(emp.salary) : Number(emp.salary);
@@ -104,10 +99,8 @@ export async function POST(request: Request) {
       };
     });
 
-    // Generate audit key
     const auditKey = randomUUID().replace(/-/g, '').slice(0, 32);
 
-    // Create payroll run
     const result = await db
       .insert(payrollRuns)
       .values({
@@ -130,7 +123,6 @@ export async function POST(request: Request) {
 
     const payrollRun = result[0];
 
-    // Insert payroll employees
     for (const entry of payrollEntries) {
       await db
         .insert(payrollEmployees)

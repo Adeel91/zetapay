@@ -1,3 +1,4 @@
+export type PaymentCurrency = 'XLM' | 'USDC';
 export type PayrollStatus = 'Completed' | 'Pending' | 'Failed' | 'Processing';
 
 export interface PayrollHistoryItem {
@@ -33,4 +34,31 @@ export interface PayrollRunDetail {
     walletAddress: string;
     type: string;
   };
+}
+
+export interface PaymentFormData {
+  personId: string;
+  amount: string;
+  currency: PaymentCurrency;
+  memo: string;
+}
+
+export interface BalanceData {
+  wallet: string;
+  xlm: string;
+  usdc: string;
+  isFunded: boolean;
+}
+
+export interface WalletBalanceCardProps {
+  balance: BalanceData | null;
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void;
+}
+
+export interface SignTransactionOptions {
+  network?: string;
+  networkPassphrase?: string;
+  accountToSign?: string;
 }

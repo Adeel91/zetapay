@@ -133,7 +133,6 @@ export default function EmployeePayrollRunDetailPage({
         }}
       />
 
-      {/* Status Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4">
         <div className="flex items-center gap-4">
           <span className="text-sm font-medium text-slate-500">Status:</span>
@@ -141,7 +140,6 @@ export default function EmployeePayrollRunDetailPage({
         </div>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
@@ -208,9 +206,7 @@ export default function EmployeePayrollRunDetailPage({
         </Card>
       </div>
 
-      {/* Detailed Info */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Employee Info */}
         <Card>
           <CardHeader>
             <CardTitle>Employee Information</CardTitle>
@@ -251,7 +247,6 @@ export default function EmployeePayrollRunDetailPage({
           </CardContent>
         </Card>
 
-        {/* Payroll Period Info */}
         <Card>
           <CardHeader>
             <CardTitle>Payroll Period</CardTitle>
@@ -291,7 +286,6 @@ export default function EmployeePayrollRunDetailPage({
         </Card>
       </div>
 
-      {/* Tax Breakdown */}
       <Card>
         <CardHeader>
           <CardTitle>Tax Breakdown</CardTitle>
@@ -318,7 +312,6 @@ export default function EmployeePayrollRunDetailPage({
         </CardContent>
       </Card>
 
-      {/* Action Buttons */}
       <div className="flex flex-wrap gap-4">
         <Link href={ROUTES.employer.employeePayroll(parseInt(id))}>
           <Button variant="outline">

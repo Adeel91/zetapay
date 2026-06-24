@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Users, DollarSign, Send, Clock, FileText, Plus, Wallet } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { Users, DollarSign, Send, Clock, FileText, UserPlus } from 'lucide-react';
 import { StatsCard } from '@/components/ui/StatsCard';
 import { QuickAction } from '@/components/ui/QuickAction';
 import { DataTable } from '@/components/ui/DataTable';
@@ -17,7 +16,6 @@ type EmployeeView = Pick<Person, 'id' | 'name' | 'wallet'> & {
   status: 'Active' | 'Inactive' | 'Pending';
 };
 
-// Explicit type layout definition representing the matching API record mapping shape
 interface ApiEmployeeRecord {
   id: number | string;
   fullName?: string;
@@ -27,7 +25,6 @@ interface ApiEmployeeRecord {
 }
 
 export default function EmployerDashboard() {
-  const [isConnected, setIsConnected] = useState(false);
   const [employees, setEmployees] = useState<EmployeeView[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,7 +39,6 @@ export default function EmployerDashboard() {
       const response = await fetch(API.employees.byEnterprise(parseInt(enterpriseId)));
       const data = await response.json();
 
-      // Fixed: Explicit type validation mapping replacement instead of using any
       const mapped: EmployeeView[] = data.map((emp: ApiEmployeeRecord) => ({
         id: String(emp.id),
         name: emp.fullName || 'Unknown',
@@ -105,7 +101,7 @@ export default function EmployerDashboard() {
       href: ROUTES.employer.history,
     },
     {
-      icon: Plus,
+      icon: UserPlus,
       title: 'Add Person',
       description: 'Add to payroll',
       href: ROUTES.employer.addEmployee,

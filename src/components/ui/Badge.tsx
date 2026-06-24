@@ -1,4 +1,3 @@
-// components/ui/Badge.tsx
 'use client';
 
 interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {

@@ -46,17 +46,6 @@ export default function EmployerConnect() {
         );
       }
 
-      const balanceResponse = await fetch(`/api/stellar/balance?wallet=${publicKey}`);
-      const balanceData = await balanceResponse.json();
-
-      if (!balanceResponse.ok) {
-        console.warn('Could not read wallet ledger tracks:', balanceData.error);
-      } else {
-        console.error(
-          `Successfully indexed ledger: XLM: ${balanceData.xlm}, USDC: ${balanceData.usdc}`
-        );
-      }
-
       refreshUser(publicKey);
       setIsConnected(true);
 
