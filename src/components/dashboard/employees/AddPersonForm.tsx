@@ -167,13 +167,13 @@ export function AddPersonForm({
             <div>
               <label className="block text-sm font-medium text-slate-700">Full Name</label>
               <div className="relative mt-1">
-                <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <User className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   required
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pr-4 pl-10 text-sm transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                   placeholder="John Doe"
                 />
               </div>
@@ -183,13 +183,13 @@ export function AddPersonForm({
             <div>
               <label className="block text-sm font-medium text-slate-700">Email</label>
               <div className="relative mt-1">
-                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Mail className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="email"
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pr-4 pl-10 text-sm transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                   placeholder="john@company.com"
                 />
               </div>
@@ -201,23 +201,25 @@ export function AddPersonForm({
                 Stellar Wallet Address
               </label>
               <div className="relative mt-1">
-                <Wallet className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Wallet className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   required
                   value={formData.walletAddress}
                   onChange={(e) => setFormData({ ...formData, walletAddress: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pr-4 pl-10 text-sm transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                   placeholder="G..."
                 />
               </div>
               <div className="mt-2 flex flex-col gap-1 rounded-lg bg-blue-50/50 p-3 text-xs">
                 <p className="text-slate-600">
-                  <span className="font-medium text-slate-700">Admin Note:</span> You're entering this wallet address on behalf of the employee.
+                  <span className="font-medium text-slate-700">Admin Note:</span> You're entering
+                  this wallet address on behalf of the employee.
                 </p>
                 <p className="text-slate-500">
                   <Info className="mr-1 inline h-3 w-3" />
-                  In the future, employees will be able to enter and verify their own wallet address directly.
+                  In the future, employees will be able to enter and verify their own wallet address
+                  directly.
                 </p>
               </div>
             </div>
@@ -231,7 +233,9 @@ export function AddPersonForm({
                 </span>
               </label>
               <div className="relative mt-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">$</span>
+                <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm font-medium text-slate-400">
+                  $
+                </span>
                 <input
                   type="number"
                   min="0"
@@ -240,7 +244,7 @@ export function AddPersonForm({
                   onChange={(e) =>
                     setFormData({ ...formData, salaryUSDC: parseFloat(e.target.value) || 0 })
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-7 pr-4 text-sm transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pr-4 pl-7 text-sm transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                   placeholder="0.00"
                 />
               </div>
@@ -256,7 +260,9 @@ export function AddPersonForm({
                 </span>
               </label>
               <div className="relative mt-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">⧫</span>
+                <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm font-medium text-slate-400">
+                  ⧫
+                </span>
                 <input
                   type="number"
                   min="0"
@@ -265,7 +271,7 @@ export function AddPersonForm({
                   onChange={(e) =>
                     setFormData({ ...formData, salaryXLM: parseFloat(e.target.value) || 0 })
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-7 pr-4 text-sm transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pr-4 pl-7 text-sm transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                   placeholder="0.00"
                 />
               </div>
@@ -276,12 +282,12 @@ export function AddPersonForm({
             <div>
               <label className="block text-sm font-medium text-slate-700">Type</label>
               <div className="relative mt-1">
-                <Users className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Users className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <select
                   required
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as PersonType })}
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pr-4 pl-10 text-sm transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                 >
                   {Object.entries(TYPE_LABELS).map(([value, label]) => (
                     <option key={value} value={value}>
@@ -300,7 +306,7 @@ export function AddPersonForm({
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                 placeholder={getTitlePlaceholder()}
               />
             </div>
@@ -315,11 +321,13 @@ export function AddPersonForm({
               <div className="flex-1">
                 <p className="text-sm font-medium text-amber-800">Wallet Verification Required</p>
                 <p className="text-xs text-amber-600">
-                  The employee will need to verify ownership of this wallet before receiving payments.
+                  The employee will need to verify ownership of this wallet before receiving
+                  payments.
                 </p>
                 <p className="mt-1 text-xs text-amber-500">
                   <Info className="mr-1 inline h-3 w-3" />
-                  Future update: Employees will be able to connect and verify their own wallet directly.
+                  Future update: Employees will be able to connect and verify their own wallet
+                  directly.
                 </p>
               </div>
             </div>

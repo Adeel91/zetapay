@@ -1,7 +1,11 @@
 if (typeof window === 'undefined' && process.release?.name === 'node') {
-  // Only execute this block if we are strictly inside a true Node.js background worker process
-  const dotenv = require('dotenv');
-  dotenv.config();
+  import('dotenv')
+    .then((dotenv) => {
+      dotenv.config();
+    })
+    .catch((err) => {
+      console.error('Failed to lazily load dotenv configuration:', err);
+    });
 }
 
 export const databaseConfig = {

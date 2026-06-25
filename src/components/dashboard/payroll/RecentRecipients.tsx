@@ -10,7 +10,9 @@ interface RecentRecipientsProps {
 
 export function RecentRecipients({ people, onSelect }: RecentRecipientsProps) {
   const hasSalary = (person: Person) => {
-    return (person.salaryUSDC && person.salaryUSDC > 0) || (person.salaryXLM && person.salaryXLM > 0);
+    return (
+      (person.salaryUSDC && person.salaryUSDC > 0) || (person.salaryXLM && person.salaryXLM > 0)
+    );
   };
 
   const getSalaryDisplay = (person: Person) => {

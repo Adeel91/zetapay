@@ -1,5 +1,5 @@
 use crate::{
-    events, storage, zk_verifier, PayrollBatch, PayrollConfig, PayrollEmployee, PayrollStats,
+    events, storage, verifier, PayrollBatch, PayrollConfig, PayrollEmployee, PayrollStats,
     PayrollStatus,
 };
 use soroban_sdk::{contract, contractimpl, token, Address, Bytes, BytesN, Env, Vec};
@@ -9,25 +9,22 @@ pub struct PayrollContract;
 
 #[contractimpl]
 impl PayrollContract {
-    pub fn initialize(
-        env: Env,
-        employer: Address,
-        usdc_contract: Address,
-        zk_verifier: Address,
-        merkle_root: BytesN<32>,
-    ) -> u64 {
+    // -----------------------------------------------------------------------
+    // Initialization
+    // -----------------------------------------------------------------------
+
+    /// Deploy and configure the contract.
+    pub fn initialize(env: Env, employer: Address, token_contract: Address) -> u64 {
         employer.require_auth();
 
         if storage::get_config(&env).is_some() {
-            panic!("Contract already initialized");
+            panic!("already_initialized");
         }
 
         let config = PayrollConfig {
             employer: employer.clone(),
-            usdc_contract: usdc_contract.clone(),
-            zk_verifier: zk_verifier.clone(),
+            token_contract,
             total_batches: 0,
-            merkle_root,
         };
         storage::set_config(&env, &config);
         events::contract_initialized(&env, &employer);
@@ -35,71 +32,69 @@ impl PayrollContract {
         config.total_batches
     }
 
+    // -----------------------------------------------------------------------
+    // Core payroll execution
+    // -----------------------------------------------------------------------
+
+    /// Execute a payroll batch with ZK proof verification.
     pub fn submit_batch(
-        env: Env,
-        employer: Address,
-        employees: Vec<PayrollEmployee>,
-        zk_proof: Bytes, // Real data payload
+        env:           Env,
+        employer:      Address,
+        employees:     Vec<PayrollEmployee>,
+        zk_proof:      Bytes,
         public_inputs: Vec<BytesN<32>>,
-        total_amount: i128,
-        period_start: u64,
-        period_end: u64,
-        merkle_root: BytesN<32>,
+        total_amount:  i128,
+        period_start:  u64,
+        period_end:    u64,
+        merkle_root:   BytesN<32>,
     ) -> u64 {
         employer.require_auth();
 
         if employees.is_empty() {
-            panic!("No employees provided");
+            panic!("no_employees");
         }
 
         if total_amount <= 0 {
-            panic!("Total amount must be greater than 0");
+            panic!("non_positive_amount");
         }
 
-        let config = storage::get_config(&env).unwrap_or_else(|| {
-            panic!("Contract not initialized");
-        });
+        let config = storage::get_config(&env).unwrap_or_else(|| panic!("not_initialized"));
 
-        if merkle_root != config.merkle_root {
-            panic!("Merkle root does not match");
-        }
-
-        let verifier = config.zk_verifier.clone();
-
-        let proof_valid = zk_verifier::verify_batch_proof(
+        // Verify ZK proof using Protocol 26 BN254 host functions
+        let (proof_valid, proof_binding) = verifier::verify_batch_proof(
             &env,
-            &verifier,
             &employees,
             &zk_proof,
             &public_inputs,
             total_amount,
-            merkle_root.clone(),
+            &merkle_root,
         );
 
         if !proof_valid {
-            events::zk_verification_failed(&env, 0);
-            panic!("Invalid ZK proof");
+            let next_id = storage::get_batch_count(&env) + 1;
+            events::zk_verification_failed(&env, next_id);
+            panic!("invalid_proof");
         }
 
-        let usdc = token::Client::new(&env, &config.usdc_contract);
-        let contract_address = env.current_contract_address();
+        // Transfer total amount from employer to contract
+        let token           = token::Client::new(&env, &config.token_contract);
+        let contract_addr   = env.current_contract_address();
 
-        usdc.transfer(&employer, &contract_address, &total_amount);
+        token.transfer(&employer, &contract_addr, &total_amount);
 
-        let batch_id = storage::get_batch_count(&env) + 1;
-        let mut successful = 0;
-        let total_employees_count = employees.len();
+        let batch_id         = storage::get_batch_count(&env) + 1;
+        let employee_count   = employees.len();
+        let mut successful   = 0u32;
 
-        for i in 0..total_employees_count {
-            let employee = employees.get(i).unwrap();
-
-            usdc.transfer(&contract_address, &employee.address, &employee.amount_usdc);
-
+        // Distribute payments to each employee
+        for i in 0..employee_count {
+            let emp = employees.get(i).unwrap();
+            token.transfer(&contract_addr, &emp.address, &emp.payout_amount);
             successful += 1;
-            events::payment_executed(&env, &employee.address, employee.amount_usdc, batch_id);
+            events::payment_executed(&env, &emp.address, emp.amount_usdc, batch_id);
         }
 
-        let status = if successful == total_employees_count {
+        let status = if successful == employee_count {
             PayrollStatus::Completed
         } else if successful > 0 {
             PayrollStatus::Partial
@@ -107,28 +102,36 @@ impl PayrollContract {
             PayrollStatus::Failed
         };
 
+        // Store batch record
         let batch = PayrollBatch {
-            id: batch_id,
-            employer: employer.clone(),
+            id:                  batch_id,
+            employer:            employer.clone(),
             total_amount,
             employees,
             zk_proof,
             public_inputs,
-            timestamp: env.ledger().timestamp(),
+            timestamp:           env.ledger().timestamp(),
             period_start,
             period_end,
             status,
             successful_payments: successful,
-            failed_payments: total_employees_count - successful,
+            failed_payments:     employee_count - successful,
             merkle_root,
+            proof_binding,
         };
 
         storage::store_batch(&env, &batch);
         storage::increment_batch_count(&env);
-        events::batch_processed(&env, batch_id, &employer, successful, total_employees_count);
+        storage::append_employer_batch(&env, &employer, batch_id);
+
+        events::batch_processed(&env, batch_id, &employer, successful, employee_count);
 
         batch_id
     }
+
+    // -----------------------------------------------------------------------
+    // Read-only accessors
+    // -----------------------------------------------------------------------
 
     pub fn get_batch(env: Env, batch_id: u64) -> Option<PayrollBatch> {
         storage::get_batch(&env, batch_id)
@@ -140,15 +143,18 @@ impl PayrollContract {
 
     pub fn get_stats(env: Env, employer: Address) -> PayrollStats {
         let batches = storage::get_employer_batches(&env, &employer);
-        let mut total_paid = 0;
-        let mut total_employees = 0;
-        let mut last_payroll = 0;
+        let mut total_paid:      i128 = 0;
+        let mut total_employees: u32  = 0;
+        let mut last_payroll:    u64  = 0;
 
         for i in 0..batches.len() {
             let batch = batches.get(i).unwrap();
-            if batch.status == PayrollStatus::Completed || batch.status == PayrollStatus::Partial {
-                total_paid += batch.total_amount;
-                total_employees += batch.successful_payments;
+            match batch.status {
+                PayrollStatus::Completed | PayrollStatus::Partial => {
+                    total_paid      += batch.total_amount;
+                    total_employees += batch.successful_payments;
+                }
+                _ => {}
             }
             if batch.timestamp > last_payroll {
                 last_payroll = batch.timestamp;
@@ -156,55 +162,10 @@ impl PayrollContract {
         }
 
         PayrollStats {
-            total_batches: batches.len(),
+            total_batches:   batches.len(),
             total_paid,
             total_employees,
             last_payroll,
         }
-    }
-
-    pub fn retry_failed_payments(
-        env: Env,
-        employer: Address,
-        batch_id: u64,
-        failed_employees: Vec<PayrollEmployee>,
-    ) -> bool {
-        employer.require_auth();
-
-        let mut batch = storage::get_batch(&env, batch_id).unwrap_or_else(|| {
-            panic!("Batch not found");
-        });
-
-        if batch.status != PayrollStatus::Partial && batch.status != PayrollStatus::Failed {
-            panic!("Batch cannot be retried");
-        }
-
-        let config = storage::get_config(&env).unwrap();
-        let usdc = token::Client::new(&env, &config.usdc_contract);
-        let contract_address = env.current_contract_address();
-
-        let mut retry_success = 0;
-        let failed_count = failed_employees.len();
-
-        for i in 0..failed_count {
-            let employee = failed_employees.get(i).unwrap();
-
-            usdc.transfer(&contract_address, &employee.address, &employee.amount_usdc);
-
-            retry_success += 1;
-            events::payment_executed(&env, &employee.address, employee.amount_usdc, batch_id);
-        }
-
-        batch.successful_payments += retry_success;
-        batch.failed_payments -= retry_success;
-
-        if batch.failed_payments == 0 {
-            batch.status = PayrollStatus::Completed;
-        }
-
-        storage::store_batch(&env, &batch);
-        events::batch_retried(&env, batch_id, retry_success, failed_count);
-
-        true
     }
 }

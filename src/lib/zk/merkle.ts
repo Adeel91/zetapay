@@ -1,24 +1,48 @@
-import { Barretenberg, BN254_FR_MODULUS, fieldToString } from '@aztec/bb.js';
-import { MerkleTreeResult } from '@/types/zk';
+/**
+ * merkle.ts — Poseidon2 / BN254 Merkle tree for ZetaPay payroll circuits.
+ *
+ * Design constraints
+ * ──────────────────
+ * • Uses Poseidon2 permutation (Protocol 26 / BN254) via @aztec/bb.js, matching
+ *   the Noir circuit's `std::hash::poseidon2_permutation` exactly.
+ * • Tree depth is always padded to MERKLE_DEPTH (32) so the circuit's fixed-size
+ *   `[Field; 32]` proof arrays are always fully populated.
+ * • Employee count is entirely dynamic — there is NO upper-bound imposed here.
+ *   The only limit is the circuit's compile-time capacity, which is read from
+ *   the ABI by prover.ts at proof-generation time.
+ * • Zero-padding within a single proof path (depth < 32) uses ZERO_FIELD_HEX.
+ * • Odd-length levels are handled by duplicating the last node (standard approach).
+ */
 
-const FIELD_BYTE_LENGTH = 32;
-const MAX_EMPLOYEES = 10;
-const MAX_DEPTH = 32;
+import { Barretenberg, BN254_FR_MODULUS, fieldToString } from '@aztec/bb.js';
+import type { MerkleTreeResult } from '@/types/zk';
+
+export const FIELD_BYTE_LENGTH = 32;
+export const MERKLE_DEPTH      = 32;
 
 export const ZERO_FIELD_HEX =
   '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-let bb: Barretenberg | null = null;
+// ---------------------------------------------------------------------------
+// Singleton Barretenberg instance
+// ---------------------------------------------------------------------------
+
+let _bb: Barretenberg | null = null;
 
 async function getBB(): Promise<Barretenberg> {
-  if (!bb) {
-    bb = await Barretenberg.new();
+  if (!_bb) {
+    _bb = await Barretenberg.new();
   }
-  return bb;
+  return _bb;
 }
 
+// ---------------------------------------------------------------------------
+// Field-element encoding / decoding
+// ---------------------------------------------------------------------------
+
 /**
- * Encode a BN254 field element as the 32-byte big-endian buffer bb.js expects.
+ * Encode any numeric-like value as a 32-byte big-endian BN254 Fr element.
+ * Reduces mod r automatically.
  */
 export function fieldToBytes(value: bigint | number | string): Uint8Array {
   let n: bigint;
@@ -26,158 +50,159 @@ export function fieldToBytes(value: bigint | number | string): Uint8Array {
   if (typeof value === 'bigint') {
     n = value;
   } else if (typeof value === 'number') {
-    n = BigInt(value);
-  } else if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (trimmed.startsWith('0x') || trimmed.startsWith('0X')) {
-      n = BigInt(trimmed);
-    } else {
-      n = BigInt(trimmed);
-    }
+    n = BigInt(Math.trunc(value));
   } else {
-    n = BigInt(0);
+    const t = value.trim();
+    n = BigInt(t.startsWith('0x') || t.startsWith('0X') ? t : t || '0');
   }
 
   n = ((n % BN254_FR_MODULUS) + BN254_FR_MODULUS) % BN254_FR_MODULUS;
 
-  const bytes = new Uint8Array(FIELD_BYTE_LENGTH);
+  const out = new Uint8Array(FIELD_BYTE_LENGTH);
   for (let i = FIELD_BYTE_LENGTH - 1; i >= 0; i--) {
-    bytes[i] = Number(n & BigInt(0xff));
+    out[i] = Number(n & BigInt(0xff));
     n >>= BigInt(8);
   }
-  return bytes;
+  return out;
 }
 
 /**
- * Convert a 32-byte field buffer into a canonical 0x-prefixed 64-char hex string.
+ * Convert a 32-byte field buffer to a canonical 0x-prefixed 64-hex-char string.
  */
 export function bytesToFieldHex(bytes: Uint8Array): string {
-  const slice = bytes.length >= FIELD_BYTE_LENGTH ? bytes.slice(0, FIELD_BYTE_LENGTH) : bytes;
+  const slice = bytes.length >= FIELD_BYTE_LENGTH
+    ? bytes.slice(0, FIELD_BYTE_LENGTH)
+    : bytes;
   const hex = fieldToString(slice, 16).padStart(64, '0');
   return `0x${hex}`;
 }
 
 /**
- * Normalize any supported field representation to canonical hex.
+ * Normalise any supported field representation to canonical 0x hex.
  */
 export function toFieldHex(value: bigint | number | string | Uint8Array): string {
-  if (value instanceof Uint8Array) {
-    return bytesToFieldHex(value);
-  }
+  if (value instanceof Uint8Array) return bytesToFieldHex(value);
   return bytesToFieldHex(fieldToBytes(value));
 }
 
+// ---------------------------------------------------------------------------
+// Poseidon2 primitives (exact match to Noir circuit)
+// ---------------------------------------------------------------------------
+
 /**
- * Run Poseidon2 permutation (Protocol 26 / BN254) over exactly four field elements.
- * Returns permuted[0] as canonical hex, matching Noir's `permuted[0]` indexing.
+ * Run one Poseidon2 permutation over exactly 4 field elements.
+ * Returns `permuted[0]` as canonical hex — identical to Noir's
+ *   `std::hash::poseidon2_permutation([a, b, c, d], 4)[0]`
  */
-async function poseidon2Permute(fields: Array<bigint | number | string>): Promise<string> {
-  if (fields.length !== 4) {
-    throw new Error('Poseidon2 permutation requires exactly four field inputs');
-  }
-
-  const b = await getBB();
-  const inputs = fields.map((field) => fieldToBytes(field));
-
-  const response = await b.poseidon2Permutation({ inputs });
-  const permuted = response.outputs[0];
-
-  if (!permuted || permuted.length === 0) {
-    throw new Error('Poseidon2 permutation returned an empty output state');
-  }
-
-  return bytesToFieldHex(permuted);
+async function poseidon2Permute4(
+  f0: bigint | number | string,
+  f1: bigint | number | string,
+  f2: bigint | number | string,
+  f3: bigint | number | string,
+): Promise<string> {
+  const b      = await getBB();
+  const inputs = [f0, f1, f2, f3].map(fieldToBytes);
+  const res    = await b.poseidon2Permutation({ inputs });
+  const out    = res.outputs[0];
+  if (!out || out.length === 0) throw new Error('Poseidon2 permutation returned empty output');
+  return bytesToFieldHex(out);
 }
 
 /**
- * Matches Noir `generate_commitment`:
- * poseidon2_permutation([employee_id, salary, salt, 0]) -> permuted[0]
+ * Commitment hash — mirrors Noir `generate_commitment`:
+ *   poseidon2_permutation([employee_id, salary, salt, 0])[0]
  */
 export async function generateCommitment(
   employeeId: number | bigint,
-  salary: number | bigint,
-  salt: number | bigint,
+  salary:     number | bigint,
+  salt:       number | bigint,
 ): Promise<string> {
-  return poseidon2Permute([employeeId, salary, salt, 0]);
+  return poseidon2Permute4(employeeId, salary, salt, 0);
 }
 
 /**
- * Matches Noir `poseidon2_hash_2`:
- * poseidon2_permutation([left, right, 0, 0]) -> permuted[0]
+ * Node-pair hash — mirrors Noir `poseidon2_hash_2`:
+ *   poseidon2_permutation([left, right, 0, 0])[0]
  */
 export async function poseidon2Hash(left: string, right: string): Promise<string> {
-  return poseidon2Permute([left, right, 0, 0]);
+  return poseidon2Permute4(left, right, 0, 0);
 }
 
+// ---------------------------------------------------------------------------
+// Merkle tree construction
+// ---------------------------------------------------------------------------
+
 /**
- * Build a dynamic Merkle tree (up to 10 leaves, padded proofs to depth 32).
+ * Build a Poseidon2 Merkle tree over `leaves` and return:
+ *   - `root`        : tree root as 0x hex
+ *   - `proofs`      : one sibling-path per leaf, each padded to MERKLE_DEPTH (32)
+ *   - `path_indices`: direction bits (0 = left, 1 = right) per level, padded to 32
+ *   - `depths`      : actual tree depth for each leaf (same for all leaves; kept
+ *                     per-leaf for compatibility with the circuit's `merkle_depths`
+ *                     input array)
+ *
+ * No upper bound is imposed on `leaves.length` here.
+ * Caller (prover.ts) validates against the circuit's compiled capacity.
  */
 export async function buildMerkleTree(leaves: string[]): Promise<MerkleTreeResult> {
   if (leaves.length === 0) {
     return {
-      root: ZERO_FIELD_HEX,
-      proofs: Array.from({ length: MAX_EMPLOYEES }, () => Array(MAX_DEPTH).fill(ZERO_FIELD_HEX)),
-      path_indices: Array.from({ length: MAX_EMPLOYEES }, () => Array(MAX_DEPTH).fill(0)),
-      depths: Array(MAX_EMPLOYEES).fill(0),
+      root:         ZERO_FIELD_HEX,
+      proofs:       [],
+      path_indices: [],
+      depths:       [],
     };
   }
 
-  const normalizedLeaves = leaves.map((leaf) => toFieldHex(leaf));
-  const tree: string[][] = [normalizedLeaves];
+  const normalised = leaves.map(toFieldHex);
 
-  while (tree[tree.length - 1].length > 1) {
-    const currentLevel = tree[tree.length - 1];
-    const nextLevel: string[] = [];
+  // Build every level bottom-up.
+  const levels: string[][] = [normalised];
 
-    for (let i = 0; i < currentLevel.length; i += 2) {
-      const left = currentLevel[i];
-      const right = i + 1 < currentLevel.length ? currentLevel[i + 1] : left;
-      nextLevel.push(await poseidon2Hash(left, right));
+  while (levels[levels.length - 1].length > 1) {
+    const cur  = levels[levels.length - 1];
+    const next: string[] = [];
+
+    for (let i = 0; i < cur.length; i += 2) {
+      const left  = cur[i];
+      const right = i + 1 < cur.length ? cur[i + 1] : cur[i]; // duplicate last
+      next.push(await poseidon2Hash(left, right));
     }
-
-    tree.push(nextLevel);
+    levels.push(next);
   }
 
-  const root = tree[tree.length - 1][0] ?? ZERO_FIELD_HEX;
-  const depth = tree.length - 1;
+  const root       = levels[levels.length - 1][0] ?? ZERO_FIELD_HEX;
+  const treeDepth  = levels.length - 1; // actual depth of this tree (≤ 32)
 
-  const proofs: string[][] = [];
-  const pathIndices: number[][] = [];
-  const depths: number[] = [];
+  const proofs:       string[][] = [];
+  const pathIndices:  number[][] = [];
+  const depths:       number[]   = [];
 
-  for (let leafIndex = 0; leafIndex < leaves.length; leafIndex++) {
-    const proof: string[] = [];
-    const path: number[] = [];
-    let index = leafIndex;
+  for (let leafIdx = 0; leafIdx < leaves.length; leafIdx++) {
+    const siblings: string[] = [];
+    const bits:     number[] = [];
+    let   cursor             = leafIdx;
 
-    for (let level = 0; level < depth; level++) {
-      const levelNodes = tree[level];
-      const isRightNode = index % 2 === 1;
-      const siblingIndex = isRightNode ? index - 1 : index + 1;
+    // Walk from leaf level up to root, collecting siblings.
+    for (let lvl = 0; lvl < treeDepth; lvl++) {
+      const levelNodes = levels[lvl];
+      const isRight    = cursor % 2 === 1;
+      const siblingIdx = isRight ? cursor - 1 : cursor + 1;
 
-      proof.push(
-        siblingIndex < levelNodes.length ? levelNodes[siblingIndex] : levelNodes[index],
-      );
-      path.push(isRightNode ? 1 : 0);
-      index = Math.floor(index / 2);
+      // If sibling does not exist (odd-length level), mirror the node itself.
+      siblings.push(siblingIdx < levelNodes.length ? levelNodes[siblingIdx] : levelNodes[cursor]);
+      bits.push(isRight ? 1 : 0);
+
+      cursor = Math.floor(cursor / 2);
     }
 
-    while (proof.length < MAX_DEPTH) {
-      proof.push(ZERO_FIELD_HEX);
-    }
-    while (path.length < MAX_DEPTH) {
-      path.push(0);
-    }
+    // Pad path to MERKLE_DEPTH so the circuit's `[Field; 32]` is always full.
+    while (siblings.length < MERKLE_DEPTH) siblings.push(ZERO_FIELD_HEX);
+    while (bits.length    < MERKLE_DEPTH) bits.push(0);
 
-    proofs.push(proof);
-    pathIndices.push(path);
-    depths.push(depth);
-  }
-
-  while (proofs.length < MAX_EMPLOYEES) {
-    proofs.push(Array(MAX_DEPTH).fill(ZERO_FIELD_HEX));
-    pathIndices.push(Array(MAX_DEPTH).fill(0));
-    depths.push(0);
+    proofs.push(siblings);
+    pathIndices.push(bits);
+    depths.push(treeDepth);
   }
 
   return { root, proofs, path_indices: pathIndices, depths };

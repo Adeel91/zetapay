@@ -1,27 +1,25 @@
 # ZetaPay Smart Contracts Workspace
-# 
-# This workspace contains two Soroban smart contracts:
-# - payroll: Main payroll processing contract with ZK verification
-# - zk_verifier: ZK proof verification contract using Protocol 26
 #
-# Built for Stellar Protocol 26 with BN254 host function support
+# Single unified payroll crate combining execution and ZK verification.
+# Built for Stellar Testnet targeting Protocol 21+ (soroban-sdk v21).
+# BN254 pairing-based UltraHonk proof verification will be enabled when
+# Protocol 26 bn254_pairing host functions are activated on-chain.
 
 [workspace]
 members = [
     "./payroll",
-    "./zk_verifier",
 ]
 resolver = "2"
 
 [workspace.dependencies]
-soroban-sdk = "21.0.0"
+soroban-sdk = "21.7.0"
 
 [profile.release]
-opt-level = "z"
+opt-level     = "z"
 overflow-checks = true
-debug = 0
-strip = "symbols"
+debug           = 0
+strip           = "symbols"
 debug-assertions = false
-panic = "abort"
-codegen-units = 1
-lto = true
+panic           = "abort"
+codegen-units   = 1
+lto             = true

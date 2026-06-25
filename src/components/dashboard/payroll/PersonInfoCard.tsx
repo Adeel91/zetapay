@@ -43,8 +43,10 @@ export function PersonInfoCard({ person, onCopyWallet }: PersonInfoCardProps) {
     return colors[type?.toLowerCase() || ''] || 'from-emerald-100 to-emerald-200 text-emerald-700';
   };
 
-  const hasSalaryUSDC = person.salaryUSDC !== undefined && person.salaryUSDC !== null && person.salaryUSDC > 0;
-  const hasSalaryXLM = person.salaryXLM !== undefined && person.salaryXLM !== null && person.salaryXLM > 0;
+  const hasSalaryUSDC =
+    person.salaryUSDC !== undefined && person.salaryUSDC !== null && person.salaryUSDC > 0;
+  const hasSalaryXLM =
+    person.salaryXLM !== undefined && person.salaryXLM !== null && person.salaryXLM > 0;
   const hasAnySalary = hasSalaryUSDC || hasSalaryXLM;
 
   return (

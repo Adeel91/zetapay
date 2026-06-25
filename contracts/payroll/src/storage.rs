@@ -1,50 +1,132 @@
-// ✅ Protocol 26: TTL management
-use soroban_sdk::{Env, Vec, Address};
-use crate::{PayrollConfig, PayrollBatch};
+use soroban_sdk::{contracttype, Address, Env, Vec};
 
-const CONFIG_KEY: &[u8] = b"config";
-const BATCH_COUNT_KEY: &[u8] = b"batch_count";
+use crate::{PayrollBatch, PayrollConfig};
 
-// ✅ Protocol 26: TTL constants
-const TTL_THRESHOLD: u32 = 10; // 10 ledgers
-const TTL_EXTEND_TO: u32 = 100; // 100 ledgers
+// ---------------------------------------------------------------------------
+// Storage key enum — type-safe, clash-free key space.
+// ---------------------------------------------------------------------------
+
+#[contracttype]
+enum StorageKey {
+    Config,
+    BatchCount,
+    Batch(u64),
+    EmployerBatchIds(Address),
+}
+
+// ---------------------------------------------------------------------------
+// TTL constants (ledger-based)
+// 1 ledger ≈ 5 seconds on Stellar network
+// Config and batch records should survive at least one year of payroll cycles
+// ~1 year ≈ 6,311,520 ledgers
+// Trigger extension when ≤ 30 days remain (≈ 518,400 ledgers)
+// ---------------------------------------------------------------------------
+const TTL_THRESHOLD: u32 = 518_400;   // ~30 days
+const TTL_EXTEND_TO: u32 = 6_311_520; // ~1 year
+
+// ---------------------------------------------------------------------------
+// Config storage operations
+// ---------------------------------------------------------------------------
 
 pub fn set_config(env: &Env, config: &PayrollConfig) {
-    env.storage().persistent().set(&CONFIG_KEY, config);
-    // ✅ Protocol 26: Extend TTL
-    env.storage().persistent().extend_ttl(&CONFIG_KEY, TTL_THRESHOLD, TTL_EXTEND_TO);
+    env.storage().persistent().set(&StorageKey::Config, config);
+    env.storage()
+        .persistent()
+        .extend_ttl(&StorageKey::Config, TTL_THRESHOLD, TTL_EXTEND_TO);
 }
 
 pub fn get_config(env: &Env) -> Option<PayrollConfig> {
-    env.storage().persistent().get(&CONFIG_KEY)
+    if let Some(config) = env.storage().persistent().get::<StorageKey, PayrollConfig>(&StorageKey::Config) {
+        env.storage()
+            .persistent()
+            .extend_ttl(&StorageKey::Config, TTL_THRESHOLD, TTL_EXTEND_TO);
+        Some(config)
+    } else {
+        None
+    }
 }
 
-pub fn store_batch(env: &Env, batch: &PayrollBatch) {
-    env.storage().persistent().set(&batch.id, batch);
-    // ✅ Protocol 26: Extend TTL
-    env.storage().persistent().extend_ttl(&batch.id, TTL_THRESHOLD, TTL_EXTEND_TO);
-}
-
-pub fn get_batch(env: &Env, batch_id: u64) -> Option<PayrollBatch> {
-    env.storage().persistent().get(&batch_id)
-}
-
-pub fn get_employer_batches(env: &Env, employer: &Address) -> Vec<PayrollBatch> {
-    Vec::new(env)
-}
+// ---------------------------------------------------------------------------
+// Batch counter (monotonic ID generator)
+// ---------------------------------------------------------------------------
 
 pub fn get_batch_count(env: &Env) -> u64 {
-    env.storage().persistent().get(&BATCH_COUNT_KEY).unwrap_or(0)
+    env.storage()
+        .persistent()
+        .get::<StorageKey, u64>(&StorageKey::BatchCount)
+        .unwrap_or(0)
 }
 
 pub fn increment_batch_count(env: &Env) {
-    let count = get_batch_count(env) + 1;
-    env.storage().persistent().set(&BATCH_COUNT_KEY, &count);
-    // ✅ Protocol 26: Extend TTL
-    env.storage().persistent().extend_ttl(&BATCH_COUNT_KEY, TTL_THRESHOLD, TTL_EXTEND_TO);
+    let next = get_batch_count(env) + 1;
+    env.storage()
+        .persistent()
+        .set(&StorageKey::BatchCount, &next);
+    env.storage()
+        .persistent()
+        .extend_ttl(&StorageKey::BatchCount, TTL_THRESHOLD, TTL_EXTEND_TO);
 }
 
-// ✅ Protocol 26: Utility function to extend TTL for any key
-pub fn extend_ttl(env: &Env, key: &[u8], threshold: u32, extend_to: u32) {
-    env.storage().persistent().extend_ttl(key, threshold, extend_to);
+// ---------------------------------------------------------------------------
+// Batch record storage operations
+// ---------------------------------------------------------------------------
+
+pub fn store_batch(env: &Env, batch: &PayrollBatch) {
+    env.storage()
+        .persistent()
+        .set(&StorageKey::Batch(batch.id), batch);
+    env.storage()
+        .persistent()
+        .extend_ttl(&StorageKey::Batch(batch.id), TTL_THRESHOLD, TTL_EXTEND_TO);
+}
+
+pub fn get_batch(env: &Env, batch_id: u64) -> Option<PayrollBatch> {
+    if let Some(batch) = env
+        .storage()
+        .persistent()
+        .get::<StorageKey, PayrollBatch>(&StorageKey::Batch(batch_id))
+    {
+        env.storage()
+            .persistent()
+            .extend_ttl(&StorageKey::Batch(batch_id), TTL_THRESHOLD, TTL_EXTEND_TO);
+        Some(batch)
+    } else {
+        None
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Per-employer batch index operations
+// ---------------------------------------------------------------------------
+
+pub fn append_employer_batch(env: &Env, employer: &Address, batch_id: u64) {
+    let key = StorageKey::EmployerBatchIds(employer.clone());
+    let mut ids: Vec<u64> = env
+        .storage()
+        .persistent()
+        .get::<StorageKey, Vec<u64>>(&key)
+        .unwrap_or_else(|| Vec::new(env));
+    ids.push_back(batch_id);
+    env.storage().persistent().set(&key, &ids);
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND_TO);
+}
+
+pub fn get_employer_batches(env: &Env, employer: &Address) -> Vec<PayrollBatch> {
+    let key = StorageKey::EmployerBatchIds(employer.clone());
+    let ids: Vec<u64> = env
+        .storage()
+        .persistent()
+        .get::<StorageKey, Vec<u64>>(&key)
+        .unwrap_or_else(|| Vec::new(env));
+
+    let mut batches: Vec<PayrollBatch> = Vec::new(env);
+    for i in 0..ids.len() {
+        let id = ids.get(i).unwrap();
+        if let Some(batch) = get_batch(env, id) {
+            batches.push_back(batch);
+        }
+    }
+    batches
 }

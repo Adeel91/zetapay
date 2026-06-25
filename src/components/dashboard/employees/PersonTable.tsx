@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Edit, Trash2, Send, History, Coins } from 'lucide-react';
+import { Edit, Trash2, Send, History } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { DataTable } from '@/components/ui/DataTable';
 import { PersonTypeBadge } from './PersonTypeBadge';
@@ -50,8 +50,8 @@ export function PersonTable({
       // Convert XLM to USD (rough estimate 1 XLM = $0.10 for display purposes)
       // This is just for display - actual conversion would use a price feed
       const usdcValue = person.salaryUSDC;
-      const xlmUsdValue = person.salaryXLM * 0.10; // Rough estimate
-      
+      const xlmUsdValue = person.salaryXLM * 0.1; // Rough estimate
+
       if (usdcValue >= xlmUsdValue) {
         return {
           currency: 'USDC',
@@ -160,22 +160,24 @@ export function PersonTable({
           <div className="flex flex-col gap-0.5">
             {/* Primary Salary - shown prominently */}
             <div className="flex items-center gap-1.5">
-              <span className={`text-sm font-semibold ${
-                primary.currency === 'USDC' ? 'text-emerald-600' : 'text-blue-600'
-              }`}>
+              <span
+                className={`text-sm font-semibold ${
+                  primary.currency === 'USDC' ? 'text-emerald-600' : 'text-blue-600'
+                }`}
+              >
                 {primary.formatted}
               </span>
-              {hasBoth && (
-                <span className="text-[10px] font-medium text-slate-400">(Primary)</span>
-              )}
+              {hasBoth && <span className="text-[10px] font-medium text-slate-400">(Primary)</span>}
             </div>
-            
+
             {/* Secondary Salary - shown smaller if both exist */}
             {secondary && (
               <div className="flex items-center gap-1.5">
-                <span className={`text-xs font-medium ${
-                  secondary.currency === 'USDC' ? 'text-emerald-500/70' : 'text-blue-500/70'
-                }`}>
+                <span
+                  className={`text-xs font-medium ${
+                    secondary.currency === 'USDC' ? 'text-emerald-500/70' : 'text-blue-500/70'
+                  }`}
+                >
                   {secondary.formatted}
                 </span>
                 <span className="text-[10px] text-slate-400">(Secondary)</span>

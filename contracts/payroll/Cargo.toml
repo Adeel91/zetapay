@@ -1,17 +1,16 @@
-# Payroll Contract Dependencies
-# 
-# Core payroll processing contract for ZetaPay.
-# Handles batch payroll with ZK proof verification.
-# 
-# # Features
-# - Batch processing with atomic transfers
-# - ZK proof verification via verifier contract
-# - Merkle tree integration for employee verification
-# - Retry mechanism for failed payments
-# - Full event logging for audit trail
+# ZetaPay Unified Payroll Contract
+#
+# A single contract that combines batch payroll execution with built-in ZK proof verification.
+# Processes dynamic employee counts without an upper-bound hard limit, supporting any number
+# of employees per batch as long as they fit within transaction limits.
+#
+# Verification includes BN254 Fr field membership checks, amount consistency validation,
+# Poseidon2 commitment binding to prevent tampering, and full proof structure verification.
+# The verifier module includes UltraHonk pairing check infrastructure, which will be
+# activated once we upgrade to a Protocol 26 host image with complete pairing support.
 
 [package]
-name = "zetapay-payroll"
+name    = "zetapay-payroll"
 version = "0.1.0"
 edition = "2021"
 

@@ -153,12 +153,14 @@ interface ApiRecord {
 export function mapApiRecordToPerson(record: ApiRecord): Person {
   let salaryUSDC = 0;
   if (record.salaryUSDC !== null && record.salaryUSDC !== undefined) {
-    salaryUSDC = typeof record.salaryUSDC === 'string' ? parseFloat(record.salaryUSDC) : record.salaryUSDC;
+    salaryUSDC =
+      typeof record.salaryUSDC === 'string' ? parseFloat(record.salaryUSDC) : record.salaryUSDC;
   }
 
   let salaryXLM = 0;
   if (record.salaryXLM !== null && record.salaryXLM !== undefined) {
-    salaryXLM = typeof record.salaryXLM === 'string' ? parseFloat(record.salaryXLM) : record.salaryXLM;
+    salaryXLM =
+      typeof record.salaryXLM === 'string' ? parseFloat(record.salaryXLM) : record.salaryXLM;
   }
 
   if (salaryUSDC === 0 && record.salary !== null && record.salary !== undefined) {

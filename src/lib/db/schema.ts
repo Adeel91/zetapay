@@ -100,7 +100,7 @@ export const employees = pgTable(
     status: employeeStatusEnum('status').default('active'),
     title: varchar('title', { length: 255 }),
     salaryUSDC: decimal('salary_usdc', { precision: 20, scale: 7 }).default('0'), // ✅ NEW
-    salaryXLM: decimal('salary_xlm', { precision: 20, scale: 7 }).default('0'), 
+    salaryXLM: decimal('salary_xlm', { precision: 20, scale: 7 }).default('0'),
     taxFilingStatus: taxFilingStatusEnum('tax_filing_status').default('single'),
     allowances: integer('allowances').default(0),
     additionalWithholding: decimal('additional_withholding', { precision: 10, scale: 2 }).default(

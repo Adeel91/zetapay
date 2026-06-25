@@ -15,7 +15,7 @@ import { Person } from '@/types/person';
 import { PaymentFormData, BalanceData } from '@/types/payroll';
 import { mapApiRecordToPerson } from '@/types/person';
 import { ZetaPayProver, EmployeeInput } from '@/lib/zk/prover';
-import type { ProofResult } from '@/types/zk';
+import type { FullProofResult } from '@/lib/zk/prover';
 
 interface ApiRecord {
   id: string | number;
@@ -35,18 +35,12 @@ interface ApiRecord {
 }
 
 function generateSalt(): number {
-  return Math.floor(Math.random() * 1000000000);
+  return Math.floor(Math.random() * 1_000_000_000);
 }
 
-function proofBytesToNumericArray(proof: Uint8Array): number[] {
-  return Array.from(proof, (byte) => byte);
-}
-
-function normalizeProofPayload(proofResult: ProofResult) {
-  return {
-    proof: proofBytesToNumericArray(proofResult.proof),
-    publicInputs: proofResult.publicInputs,
-  };
+/** Convert raw proof bytes to a lowercase hex string for JSON transport. */
+function proofToHex(proof: Uint8Array): string {
+  return Array.from(proof, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export default function SendPaymentPage() {
@@ -63,7 +57,7 @@ export default function SendPaymentPage() {
   const [circuitLoading, setCircuitLoading] = useState(true);
   const [circuitReady, setCircuitReady] = useState(false);
   const [circuitError, setCircuitError] = useState<string | null>(null);
-  const [zkProof, setZkProof] = useState<ProofResult | null>(null);
+  const [zkProof, setZkProof] = useState<FullProofResult | null>(null);
 
   const [formData, setFormData] = useState<PaymentFormData>({
     personId: '',
@@ -139,7 +133,7 @@ export default function SendPaymentPage() {
         if (urlPerson) {
           let defaultAmount = '';
           let defaultCurrency: 'USDC' | 'XLM' = 'USDC';
-          
+
           if (urlPerson.salaryUSDC && urlPerson.salaryUSDC > 0) {
             defaultAmount = urlPerson.salaryUSDC.toString();
             defaultCurrency = 'USDC';
@@ -147,7 +141,7 @@ export default function SendPaymentPage() {
             defaultAmount = urlPerson.salaryXLM.toString();
             defaultCurrency = 'XLM';
           }
-          
+
           setFormData((prev) => ({
             ...prev,
             personId: urlPerson.id,
@@ -179,9 +173,7 @@ export default function SendPaymentPage() {
       } catch (err) {
         console.error('Failed to load payroll circuit:', err);
         if (isMounted) {
-          setCircuitError(
-            err instanceof Error ? err.message : 'Failed to load ZK payroll circuit',
-          );
+          setCircuitError(err instanceof Error ? err.message : 'Failed to load ZK payroll circuit');
           setCircuitReady(false);
         }
       } finally {
@@ -220,7 +212,7 @@ export default function SendPaymentPage() {
     if (person) {
       let defaultAmount = '';
       let defaultCurrency: 'USDC' | 'XLM' = 'USDC';
-      
+
       if (person.salaryUSDC && person.salaryUSDC > 0) {
         defaultAmount = person.salaryUSDC.toString();
         defaultCurrency = 'USDC';
@@ -254,10 +246,10 @@ export default function SendPaymentPage() {
     navigator.clipboard.writeText(text);
   };
 
-  const generateZKProof = async (): Promise<ProofResult> => {
+  const generateZKProof = async (): Promise<FullProofResult> => {
     if (!circuitReady) {
       throw new Error(
-        circuitError || 'Payroll circuit is still loading. Please wait a moment and try again.',
+        circuitError || 'Payroll circuit is still loading. Please wait a moment and try again.'
       );
     }
 
@@ -265,7 +257,11 @@ export default function SendPaymentPage() {
       throw new Error('Please select a recipient employee first.');
     }
 
-    if (!formData.amount || isNaN(parseFloat(formData.amount)) || parseFloat(formData.amount) <= 0) {
+    if (
+      !formData.amount ||
+      isNaN(parseFloat(formData.amount)) ||
+      parseFloat(formData.amount) <= 0
+    ) {
       throw new Error('Please provide a valid transaction amount.');
     }
 
@@ -273,37 +269,30 @@ export default function SendPaymentPage() {
     setError(null);
 
     try {
-      // ✅ Parse raw numeric UI strings safely into standard BigInt formatting parameters
       const targetEmployeeId = BigInt(selectedPerson.id);
-      const targetSalary = BigInt(Math.floor(parseFloat(formData.amount)));
-      const randomSalt = BigInt(generateSalt());
+      const targetSalary     = BigInt(Math.floor(parseFloat(formData.amount)));
+      const randomSalt       = BigInt(generateSalt());
 
-      // ✅ Format the active execution array payload structure
       const activeEmployees: EmployeeInput[] = [
-        {
-          id: targetEmployeeId,
-          salary: targetSalary,
-          salt: randomSalt
-        }
+        { id: targetEmployeeId, salary: targetSalary, salt: randomSalt },
       ];
 
       console.log('⚡ Running prover...', {
-        id: targetEmployeeId.toString(),
+        id:     targetEmployeeId.toString(),
         salary: targetSalary.toString(),
-        salt: randomSalt.toString()
+        salt:   randomSalt.toString(),
       });
 
-      // Run witness generation and proof compilation against the preloaded circuit artifact
       const proofResult = await ZetaPayProver.generatePayrollProof(activeEmployees);
 
       console.log('✅ Cryptographic proof compiled successfully!');
-      
+
       setZkProof(proofResult);
       return proofResult;
-
-    } catch (err: any) {
-      console.error('❌ Prover initialization failure:', err);
-      throw new Error(err.message || 'ZK proving execution failed.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown prover error';
+      console.error('❌ Prover failure:', err);
+      throw new Error(msg);
     } finally {
       setGeneratingProof(false);
     }
@@ -316,34 +305,60 @@ export default function SendPaymentPage() {
 
     try {
       if (!selectedPerson?.wallet) {
-        throw new Error('Recipient has no wallet address set');
+        throw new Error('Recipient has no wallet address set.');
       }
 
-      let proofData;
+      // Generate proof on first submit; reuse cached result on retry.
+      let proofResult: FullProofResult;
       try {
-        proofData = zkProof ? zkProof : await generateZKProof();
+        proofResult = zkProof ?? (await generateZKProof());
       } catch (err) {
-        throw new Error('Failed to generate ZK proof: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        throw new Error(
+          'Failed to generate ZK proof: ' + (err instanceof Error ? err.message : 'Unknown error')
+        );
       }
 
-      if (!proofData || !proofData.proof) {
-        throw new Error('Verification data compilation output was empty.');
+      if (!proofResult?.proof?.length) {
+        throw new Error('Proof generation returned empty output.');
       }
 
-      const zkProofPayload = normalizeProofPayload(proofData);
+      const { circuitInputs } = proofResult;
+      const payoutAmount      = Math.floor(parseFloat(formData.amount));
+
+      // ── Build the exact payload shape the API route expects ────────────────
+      const payload = {
+        // Hex-encoded proof bytes
+        proof: proofToHex(proofResult.proof),
+
+        // BN254 Fr commitment per active employee (from public circuit outputs)
+        publicInputs: circuitInputs.commitments.slice(0, 1),
+
+        // The Poseidon2 Merkle root shared by all employees in this batch
+        merkleRoot: circuitInputs.merkle_roots[0] ?? ('0x' + '0'.repeat(64)),
+
+        // Sum of all payout amounts (micro-token units)
+        totalAmount: Number(circuitInputs.total_amount),
+
+        periodStart: Math.floor(Date.now() / 1000),
+        periodEnd:   Math.floor(Date.now() / 1000) + 2_592_000, // +30 days
+
+        // One entry per employee with all Soroban contract fields
+        employees: [{
+          employeeId:       parseInt(selectedPerson.id),
+          address:          selectedPerson.wallet,
+          payoutAmount,
+          salaryCommitment: circuitInputs.commitments[0],
+          merkleProof:      circuitInputs.merkle_proofs[0],
+          merkleIndex:      0,
+        }],
+      };
 
       console.log('🚀 Sending payroll payload to server...');
 
       const response = await fetch(API.stellar.send, {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipient: selectedPerson.wallet,
-          amount: parseFloat(formData.amount),
-          currency: formData.currency,
-          memo: formData.memo || `Payment to ${selectedPerson.name}`,
-          zkProof: zkProofPayload,
-        }),
+        body:    JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -389,9 +404,7 @@ export default function SendPaymentPage() {
           {formData.amount} {formData.currency} sent to {selectedPerson?.name}
         </p>
         {zkProof && (
-          <p className="mt-1 text-xs text-slate-400">
-            🔒 ZK Proof Generated and Verified
-          </p>
+          <p className="mt-1 text-xs text-slate-400">🔒 ZK Proof Generated and Verified</p>
         )}
         <div className="mt-6 flex gap-3">
           <Button variant="outline" onClick={() => router.push(ROUTES.employer.employees)}>
