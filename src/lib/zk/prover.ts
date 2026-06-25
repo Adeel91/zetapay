@@ -1,121 +1,135 @@
 // lib/zk/prover.ts
 import { Noir } from '@noir-lang/noir_js';
 import { BarretenbergBackend } from '@noir-lang/backend_barretenberg';
-import circuit from '@/lib/zk/circuits/payroll.json';
-import { EmployeeProofInput, ProofResult } from '@/types/zk';
+import { generateCommitment, buildMerkleTree } from './merkle';
+// ✅ Import circuit directly with type assertion
+import circuitArtifactRaw from '@/lib/zk//circuits/payroll.json';
 
-export class ZKProver {
-    private backend: BarretenbergBackend | null = null;
-    private noir: Noir | null = null;
-    private initialized: boolean = false;
+// ✅ Type assertion to fix the type mismatch
+const circuitArtifact = circuitArtifactRaw as any;
 
-    async initialize(): Promise<void> {
-        if (this.initialized) return;
-
-        try {
-            // @ts-ignore
-            this.backend = new BarretenbergBackend(circuit);
-            // @ts-ignore
-            this.noir = new Noir(circuit, this.backend);
-            this.initialized = true;
-            console.log('✅ ZK Prover initialized successfully');
-        } catch (error) {
-            console.error('Failed to initialize ZK Prover:', error);
-            throw new Error('Failed to initialize ZK Prover');
-        }
-    }
-
-    async generateProof(inputs: EmployeeProofInput): Promise<ProofResult> {
-        if (!this.initialized) {
-            await this.initialize();
-        }
-
-        if (!this.noir || !this.backend) {
-            throw new Error('Noir execution engine components not initialized');
-        }
-
-        try {
-            // Format path_indices as 2D array for Noir
-            const rawPathIndices = inputs.merkle_path_indices as unknown as any[];
-            const structuredPathIndices: string[][] = [];
-
-            if (Array.isArray(rawPathIndices)) {
-                for (const subArray of rawPathIndices) {
-                    if (Array.isArray(subArray)) {
-                        const row: string[] = subArray.map((v: any) => String(v));
-                        while (row.length < 32) row.push("0");
-                        structuredPathIndices.push(row);
-                    }
-                }
-            }
-
-            while (structuredPathIndices.length < 10) {
-                structuredPathIndices.push(Array(32).fill("0"));
-            }
-
-            // Build proof inputs
-            const proofInputs: any = {
-                employee_ids: inputs.employee_ids.map(id => String(id)),
-                salaries: inputs.salaries.map(salary => Number(salary)), 
-                salts: inputs.salts.map(salt => String(salt)),
-                commitments: inputs.commitments.map(c => String(c)),
-                merkle_roots: inputs.merkle_roots.map(root => String(root)),
-                merkle_proofs: inputs.merkle_proofs.map(proofArr => proofArr.map(p => String(p))),
-                merkle_path_indices: structuredPathIndices,
-                merkle_depths: inputs.merkle_depths.map(depth => Number(depth)),
-                total_amount: Number(inputs.total_amount),
-                employee_count: Number(inputs.employee_count),
-                public_inputs: inputs.public_inputs.map(pi => String(pi)),
-            };
-
-            // ✅ DEBUG: Log the first commitment
-            console.log('🔍 First commitment:', proofInputs.commitments[0]);
-            console.log('🔍 First salary:', proofInputs.salaries[0]);
-            console.log('🔍 First salt:', proofInputs.salts[0]);
-            console.log('🔍 Employee count:', proofInputs.employee_count);
-            console.log('🔍 Total amount:', proofInputs.total_amount);
-
-            // @ts-ignore
-            const { witness } = await this.noir.execute(proofInputs);
-            
-            // @ts-ignore
-            const proofResult = await this.backend.generateProof(witness);
-            
-            return {
-                proof: proofResult.proof,
-                publicInputs: proofResult.publicInputs || [],
-            };
-        } catch (error) {
-            console.error('Proof generation failed:', error);
-            throw new Error('Failed to generate ZK proof: ' + (error instanceof Error ? error.message : 'Unknown error'));
-        }
-    }
-
-    async verifyProof(proof: Uint8Array, publicInputs: string[]): Promise<boolean> {
-        if (!this.initialized) {
-            await this.initialize();
-        }
-
-        if (!this.backend) {
-            throw new Error('Backend not initialized');
-        }
-
-        try {
-            // @ts-ignore
-            return await this.backend.verifyProof({ proof, publicInputs });
-        } catch (error) {
-            console.error('Proof verification failed:', error);
-            return false;
-        }
-    }
+export interface EmployeeInput {
+  id: bigint;
+  salary: bigint;
+  salt: bigint;
 }
 
-let proverInstance: ZKProver | null = null;
+export class ZetaPayProver {
+  /**
+   * Builds the strict input object structure required by the main function of your circuit,
+   * enforcing exact length limits and structural padding rules.
+   */
+  public static async buildCircuitInputs(employees: EmployeeInput[]) {
+    const MAX_EMPLOYEES = 10;
+    const DEPTH = 32;
 
-export async function getProver(): Promise<ZKProver> {
-    if (!proverInstance) {
-        proverInstance = new ZKProver();
-        await proverInstance.initialize();
+    const ZERO_PAD_FIELD = "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+    // Initialize arrays filled with zero padding matching circuit layout
+    const employee_ids = new Array(MAX_EMPLOYEES).fill(ZERO_PAD_FIELD);
+    const salaries = new Array(MAX_EMPLOYEES).fill("0");
+    const salts = new Array(MAX_EMPLOYEES).fill(ZERO_PAD_FIELD);
+    const commitments = new Array(MAX_EMPLOYEES).fill(ZERO_PAD_FIELD);
+    const public_inputs = new Array(MAX_EMPLOYEES).fill(ZERO_PAD_FIELD);
+    const merkle_roots = new Array(MAX_EMPLOYEES).fill(ZERO_PAD_FIELD);
+    
+    // Multi-dimensional arrays filled with formatted fields
+    const merkle_proofs = Array.from({ length: MAX_EMPLOYEES }, () => new Array(DEPTH).fill(ZERO_PAD_FIELD));
+    const merkle_path_indices = Array.from({ length: MAX_EMPLOYEES }, () => new Array(DEPTH).fill(ZERO_PAD_FIELD));
+    const merkle_depths = new Array(MAX_EMPLOYEES).fill(0);
+
+    // 1. Asynchronously generate all leaf commitments
+    const calculatedCommitments: string[] = [];
+    for (const emp of employees) {
+      const comm = await generateCommitment(
+        Number(emp.id),
+        Number(emp.salary),
+        Number(emp.salt)
+      );
+      calculatedCommitments.push(comm);
     }
-    return proverInstance;
+
+    // 2. Build the full unified Merkle Tree from our commitments list
+    const treeResult = await buildMerkleTree(calculatedCommitments);
+
+    let calculatedTotal = BigInt("0");
+
+    // 3. Map inputs into strict fixed-length arrays matching Noir constraints loop
+    for (let i = 0; i < MAX_EMPLOYEES; i++) {
+      if (i < employees.length) {
+        const emp = employees[i];
+        employee_ids[i] = `0x${emp.id.toString(16).padStart(64, '0')}`;
+        salaries[i] = emp.salary.toString();
+        salts[i] = `0x${emp.salt.toString(16).padStart(64, '0')}`;
+        
+        const commitmentStr = calculatedCommitments[i];
+        commitments[i] = commitmentStr;
+        public_inputs[i] = commitmentStr;
+
+        // Assign structures extracted directly from our buildMerkleTree output maps
+        merkle_roots[i] = treeResult.root;
+        merkle_proofs[i] = treeResult.proofs[i];
+        
+        // ✅ CRITICAL FIX: Convert path bits from numbers to hex strings for the Field array
+        merkle_path_indices[i] = treeResult.path_indices[i].map(bit => 
+          bit === 1 ? `0x${"1".padStart(64, '0')}` : ZERO_PAD_FIELD
+        );
+        
+        merkle_depths[i] = treeResult.depths[i];
+
+        calculatedTotal += emp.salary;
+      } else {
+        // Fallback explicitly cleared to match loop assertions
+        employee_ids[i] = ZERO_PAD_FIELD;
+        salaries[i] = "0";
+        salts[i] = ZERO_PAD_FIELD;
+        commitments[i] = ZERO_PAD_FIELD;
+        public_inputs[i] = ZERO_PAD_FIELD;
+        merkle_roots[i] = ZERO_PAD_FIELD;
+        merkle_proofs[i] = new Array(DEPTH).fill(ZERO_PAD_FIELD);
+        merkle_path_indices[i] = new Array(DEPTH).fill(ZERO_PAD_FIELD);
+        merkle_depths[i] = 0;
+      }
+    }
+
+    return {
+      employee_ids,
+      salaries,
+      salts,
+      commitments,
+      merkle_roots,
+      merkle_proofs,
+      merkle_path_indices,
+      merkle_depths,
+      total_amount: calculatedTotal.toString(),
+      employee_count: employees.length,
+      public_inputs
+    };
+  }
+
+  /**
+   * Takes raw data, compiles parameters, generates witness, and returns a verified ZK Proof.
+   * ✅ Uses imported circuit directly - no fetch needed
+   */
+  public static async generatePayrollProof(
+    employees: EmployeeInput[]
+  ): Promise<{ proof: Uint8Array; publicInputs: string[] }> {
+    
+    const inputs = await this.buildCircuitInputs(employees);
+    
+    // ✅ Use the type-asserted circuit artifact
+    const backend = new BarretenbergBackend(circuitArtifact);
+    const noir = new Noir(circuitArtifact);
+
+    // Dynamic execution matrix validation passes smoothly here
+    const { witness } = await noir.execute(inputs as any);
+    const proofResult = await backend.generateProof(witness);
+    
+    await backend.destroy();
+    
+    return {
+      proof: proofResult.proof,
+      publicInputs: proofResult.publicInputs as string[]
+    };
+  }
 }

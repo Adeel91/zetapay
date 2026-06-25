@@ -128,6 +128,21 @@ export function PersonSearchSelect({
     return classes.filter(Boolean).join(' ');
   };
 
+  const hasSalary = (person: Person) => {
+    return (person.salaryUSDC && person.salaryUSDC > 0) || (person.salaryXLM && person.salaryXLM > 0);
+  };
+
+  const getSalaryDisplay = (person: Person) => {
+    const parts = [];
+    if (person.salaryUSDC && person.salaryUSDC > 0) {
+      parts.push(`$${person.salaryUSDC.toLocaleString()} USDC`);
+    }
+    if (person.salaryXLM && person.salaryXLM > 0) {
+      parts.push(`${person.salaryXLM.toLocaleString()} XLM`);
+    }
+    return parts.join(' • ');
+  };
+
   return (
     <div ref={containerRef} className="relative w-full">
       <div
@@ -239,12 +254,12 @@ export function PersonSearchSelect({
                     </div>
                   </div>
 
-                  {person.salary && person.salary > 0 && (
+                  {hasSalary(person) && (
                     <div className="shrink-0 text-right">
                       <span className="text-sm font-semibold text-slate-700">
-                        ${person.salary.toLocaleString()}
+                        {getSalaryDisplay(person)}
                       </span>
-                      <div className="text-[10px] text-slate-400">/ month</div>
+                      <div className="text-[10px] text-slate-400">salary</div>
                     </div>
                   )}
                 </button>

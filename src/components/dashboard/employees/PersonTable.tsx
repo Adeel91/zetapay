@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Edit, Trash2, Send, History } from 'lucide-react';
+import { Edit, Trash2, Send, History, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { DataTable } from '@/components/ui/DataTable';
 import { PersonTypeBadge } from './PersonTypeBadge';
@@ -44,6 +44,71 @@ export function PersonTable({
     }
   };
 
+  const getPrimarySalary = (person: Person) => {
+    // If both exist, show the higher one
+    if (person.salaryUSDC > 0 && person.salaryXLM > 0) {
+      // Convert XLM to USD (rough estimate 1 XLM = $0.10 for display purposes)
+      // This is just for display - actual conversion would use a price feed
+      const usdcValue = person.salaryUSDC;
+      const xlmUsdValue = person.salaryXLM * 0.10; // Rough estimate
+      
+      if (usdcValue >= xlmUsdValue) {
+        return {
+          currency: 'USDC',
+          amount: person.salaryUSDC,
+          formatted: `$${person.salaryUSDC.toLocaleString()} USDC`,
+          type: 'primary' as const,
+        };
+      } else {
+        return {
+          currency: 'XLM',
+          amount: person.salaryXLM,
+          formatted: `${person.salaryXLM.toLocaleString()} XLM`,
+          type: 'primary' as const,
+        };
+      }
+    } else if (person.salaryUSDC > 0) {
+      return {
+        currency: 'USDC',
+        amount: person.salaryUSDC,
+        formatted: `$${person.salaryUSDC.toLocaleString()} USDC`,
+        type: 'primary' as const,
+      };
+    } else if (person.salaryXLM > 0) {
+      return {
+        currency: 'XLM',
+        amount: person.salaryXLM,
+        formatted: `${person.salaryXLM.toLocaleString()} XLM`,
+        type: 'primary' as const,
+      };
+    }
+    return null;
+  };
+
+  const getSecondarySalary = (person: Person) => {
+    if (person.salaryUSDC > 0 && person.salaryXLM > 0) {
+      const primary = getPrimarySalary(person);
+      if (primary?.currency === 'USDC') {
+        return {
+          currency: 'XLM',
+          amount: person.salaryXLM,
+          formatted: `${person.salaryXLM.toLocaleString()} XLM`,
+        };
+      } else {
+        return {
+          currency: 'USDC',
+          amount: person.salaryUSDC,
+          formatted: `$${person.salaryUSDC.toLocaleString()} USDC`,
+        };
+      }
+    }
+    return null;
+  };
+
+  const hasMultipleSalaries = (person: Person) => {
+    return person.salaryUSDC > 0 && person.salaryXLM > 0;
+  };
+
   const columns = [
     {
       key: 'name',
@@ -78,6 +143,47 @@ export function PersonTable({
       key: 'title',
       header: 'Title',
       render: (item: Person) => <span className="text-sm text-slate-500">{item.title || '-'}</span>,
+    },
+    {
+      key: 'salary',
+      header: 'Salary',
+      render: (item: Person) => {
+        const primary = getPrimarySalary(item);
+        const secondary = getSecondarySalary(item);
+        const hasBoth = hasMultipleSalaries(item);
+
+        if (!primary) {
+          return <span className="text-sm text-slate-400">-</span>;
+        }
+
+        return (
+          <div className="flex flex-col gap-0.5">
+            {/* Primary Salary - shown prominently */}
+            <div className="flex items-center gap-1.5">
+              <span className={`text-sm font-semibold ${
+                primary.currency === 'USDC' ? 'text-emerald-600' : 'text-blue-600'
+              }`}>
+                {primary.formatted}
+              </span>
+              {hasBoth && (
+                <span className="text-[10px] font-medium text-slate-400">(Primary)</span>
+              )}
+            </div>
+            
+            {/* Secondary Salary - shown smaller if both exist */}
+            {secondary && (
+              <div className="flex items-center gap-1.5">
+                <span className={`text-xs font-medium ${
+                  secondary.currency === 'USDC' ? 'text-emerald-500/70' : 'text-blue-500/70'
+                }`}>
+                  {secondary.formatted}
+                </span>
+                <span className="text-[10px] text-slate-400">(Secondary)</span>
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'verified',

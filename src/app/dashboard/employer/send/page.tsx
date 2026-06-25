@@ -14,6 +14,7 @@ import Cookies from 'js-cookie';
 import { Person } from '@/types/person';
 import { PaymentFormData, BalanceData } from '@/types/payroll';
 import { mapApiRecordToPerson } from '@/types/person';
+import { ZetaPayProver, EmployeeInput } from '@/lib/zk/prover';
 
 interface ApiRecord {
   id: string | number;
@@ -24,10 +25,16 @@ interface ApiRecord {
   email?: string | null;
   type?: string | null;
   title?: string | null;
+  salaryUSDC?: string | number | null;
+  salaryXLM?: string | number | null;
   salary?: string | number | null;
   status?: string | null;
   verified?: boolean | null;
   createdAt?: string | null;
+}
+
+function generateSalt(): number {
+  return Math.floor(Math.random() * 1000000000);
 }
 
 export default function SendPaymentPage() {
@@ -40,6 +47,7 @@ export default function SendPaymentPage() {
   const [hasManuallySelected, setHasManuallySelected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [generatingProof, setGeneratingProof] = useState(false);
   const [zkProof, setZkProof] = useState<any>(null);
 
   const [formData, setFormData] = useState<PaymentFormData>({
@@ -114,10 +122,22 @@ export default function SendPaymentPage() {
       if (recipientId) {
         const urlPerson = mappedPeople.find((p) => p.id === recipientId);
         if (urlPerson) {
+          let defaultAmount = '';
+          let defaultCurrency: 'USDC' | 'XLM' = 'USDC';
+          
+          if (urlPerson.salaryUSDC && urlPerson.salaryUSDC > 0) {
+            defaultAmount = urlPerson.salaryUSDC.toString();
+            defaultCurrency = 'USDC';
+          } else if (urlPerson.salaryXLM && urlPerson.salaryXLM > 0) {
+            defaultAmount = urlPerson.salaryXLM.toString();
+            defaultCurrency = 'XLM';
+          }
+          
           setFormData((prev) => ({
             ...prev,
             personId: urlPerson.id,
-            amount: urlPerson.salary ? urlPerson.salary.toString() : prev.amount,
+            amount: defaultAmount,
+            currency: defaultCurrency,
           }));
         }
       }
@@ -149,11 +169,23 @@ export default function SendPaymentPage() {
     const person = people.find((p) => p.id === personId);
 
     if (person) {
+      let defaultAmount = '';
+      let defaultCurrency: 'USDC' | 'XLM' = 'USDC';
+      
+      if (person.salaryUSDC && person.salaryUSDC > 0) {
+        defaultAmount = person.salaryUSDC.toString();
+        defaultCurrency = 'USDC';
+      } else if (person.salaryXLM && person.salaryXLM > 0) {
+        defaultAmount = person.salaryXLM.toString();
+        defaultCurrency = 'XLM';
+      }
+
       setManuallySelectedPerson(person);
       setFormData((prev) => ({
         ...prev,
         personId: person.id,
-        amount: person.salary ? person.salary.toString() : '',
+        amount: defaultAmount,
+        currency: defaultCurrency,
       }));
       setError(null);
       setZkProof(null);
@@ -173,13 +205,53 @@ export default function SendPaymentPage() {
     navigator.clipboard.writeText(text);
   };
 
-  // ✅ SKIP ZK PROOF for now - use mock proof
-  const generateMockProof = async () => {
-    // Mock proof data that will pass the contract's verification
-    return {
-      proof: new Uint8Array([1, 2, 3, 4]),
-      publicInputs: ['0x123', '0x456'],
-    };
+  const generateZKProof = async () => {
+    if (!selectedPerson) {
+      throw new Error('Please select a recipient employee first.');
+    }
+
+    if (!formData.amount || isNaN(parseFloat(formData.amount)) || parseFloat(formData.amount) <= 0) {
+      throw new Error('Please provide a valid transaction amount.');
+    }
+
+    setGeneratingProof(true);
+    setError(null);
+
+    try {
+      // ✅ Parse raw numeric UI strings safely into standard BigInt formatting parameters
+      const targetEmployeeId = BigInt(selectedPerson.id);
+      const targetSalary = BigInt(Math.floor(parseFloat(formData.amount)));
+      const randomSalt = BigInt(generateSalt());
+
+      // ✅ Format the active execution array payload structure
+      const activeEmployees: EmployeeInput[] = [
+        {
+          id: targetEmployeeId,
+          salary: targetSalary,
+          salt: randomSalt
+        }
+      ];
+
+      console.log('⚡ Running prover...', {
+        id: targetEmployeeId.toString(),
+        salary: targetSalary.toString(),
+        salt: randomSalt.toString()
+      });
+
+      // ✅ Run the witness parsing and proof generation sequence - NO FETCH NEEDED
+      const proofResult = await ZetaPayProver.generatePayrollProof(activeEmployees);
+
+      console.log('✅ Cryptographic proof compiled successfully!');
+      
+      setZkProof(proofResult);
+      return proofResult;
+
+    } catch (err: any) {
+      console.error('❌ Prover initialization failure:', err);
+      throw new Error(err.message || 'ZK proving execution failed.');
+    } finally {
+      setGeneratingProof(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -192,8 +264,18 @@ export default function SendPaymentPage() {
         throw new Error('Recipient has no wallet address set');
       }
 
-      // ✅ Use mock proof for now
-      const proofData = await generateMockProof();
+      let proofData;
+      try {
+        proofData = zkProof ? zkProof : await generateZKProof();
+      } catch (err) {
+        throw new Error('Failed to generate ZK proof: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      }
+
+      if (!proofData || !proofData.proof) {
+        throw new Error('Verification data compilation output was empty.');
+      }
+
+      console.log('🚀 Sending payroll payload to server...');
 
       const response = await fetch(API.stellar.send, {
         method: 'POST',
@@ -212,7 +294,7 @@ export default function SendPaymentPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Payment failed');
+        throw new Error(errorData.error || 'Payment transaction rejected by processor server.');
       }
 
       setSuccess(true);
@@ -252,6 +334,11 @@ export default function SendPaymentPage() {
         <p className="mt-2 text-slate-500">
           {formData.amount} {formData.currency} sent to {selectedPerson?.name}
         </p>
+        {zkProof && (
+          <p className="mt-1 text-xs text-slate-400">
+            🔒 ZK Proof Generated and Verified
+          </p>
+        )}
         <div className="mt-6 flex gap-3">
           <Button variant="outline" onClick={() => router.push(ROUTES.employer.employees)}>
             Back to People
@@ -291,7 +378,7 @@ export default function SendPaymentPage() {
             balance={balance}
             balanceLoading={balanceLoading}
             balanceError={balanceError}
-            submitting={submitting}
+            submitting={submitting || generatingProof}
             error={error}
             onPersonSelect={handlePersonSelect}
             onFormChange={handleFormChange}

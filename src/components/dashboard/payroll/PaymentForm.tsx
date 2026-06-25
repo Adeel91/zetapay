@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { Send, AlertCircle, Shield, ShieldOff, Lock, EyeOff, Sparkles, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { PersonSearchSelect } from './PersonSearchSelect';
-import { PersonInfoCard } from './PersonInfoCard';
+import { PersonSearchSelect } from '@/components/dashboard/payroll/PersonSearchSelect';
+import { PersonInfoCard } from '@/components/dashboard/payroll/PersonInfoCard';
 import { Person } from '@/types/person';
 import { PaymentFormData, BalanceData } from '@/types/payroll';
 

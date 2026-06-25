@@ -49,6 +49,8 @@ export async function POST(request: Request) {
       fullName,
       classification,
       title,
+      salaryUSDC,
+      salaryXLM,
       taxFilingStatus,
       allowances,
       additionalWithholding,
@@ -58,6 +60,13 @@ export async function POST(request: Request) {
     if (!walletAddress || !fullName) {
       return NextResponse.json(
         { error: 'Wallet address and full name are required' },
+        { status: 400 }
+      );
+    }
+
+    if ((!salaryUSDC || salaryUSDC <= 0) && (!salaryXLM || salaryXLM <= 0)) {
+      return NextResponse.json(
+        { error: 'At least one salary (USDC or XLM) must be provided' },
         { status: 400 }
       );
     }
@@ -81,6 +90,8 @@ export async function POST(request: Request) {
         fullName: fullName.trim(),
         type: classification || 'employee',
         title: title || null,
+        salaryUSDC: salaryUSDC ? String(salaryUSDC) : '0',
+        salaryXLM: salaryXLM ? String(salaryXLM) : '0',
         taxFilingStatus: taxFilingStatus || 'single',
         allowances: allowances ? parseInt(String(allowances), 10) : 0,
         additionalWithholding: additionalWithholding ? String(additionalWithholding) : '0',

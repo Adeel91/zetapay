@@ -31,6 +31,8 @@ export default async function EditPersonPage({ params }: { params: Promise<{ id:
     walletAddress: employee.walletAddress,
     type: employee.type || EMPLOYEE,
     title: employee.title || '',
+    salaryUSDC: employee.salaryUSDC ? parseFloat(employee.salaryUSDC) : 0, // ✅ FIXED
+    salaryXLM: employee.salaryXLM ? parseFloat(employee.salaryXLM) : 0,   // ✅ FIXED
     taxFilingStatus: employee.taxFilingStatus || 'single',
     allowances: employee.allowances || 0,
     additionalWithholding: parseFloat(employee.additionalWithholding || '0'),

@@ -1,3 +1,5 @@
+// types/zk.ts
+
 export interface EmployeeProofInput {
     employee_ids: string[];
     salaries: number[];
@@ -5,7 +7,7 @@ export interface EmployeeProofInput {
     commitments: string[];
     merkle_roots: string[];
     merkle_proofs: string[][];
-    merkle_path_indices: number[] | number[][];
+    merkle_path_indices: number[][];
     merkle_depths: number[];
     total_amount: number;
     employee_count: number;

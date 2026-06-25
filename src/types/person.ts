@@ -1,3 +1,4 @@
+// types/person.ts
 import { EMPLOYEE, FREELANCER, CONTRACTOR, VENDOR, CONSULTANT } from '@/config';
 
 export type PersonType =
@@ -14,13 +15,15 @@ export interface Person {
   email: string;
   type: PersonType;
   title?: string;
-  salary?: number;
+  salaryUSDC: number;
+  salaryXLM: number;
   verified: boolean;
   createdAt: string;
 }
 
 export interface PersonWithSalary extends Person {
-  salary: number;
+  salaryUSDC: number;
+  salaryXLM: number;
   status: 'Active' | 'Inactive' | 'Pending';
   walletAddress: string;
   fullName: string;
@@ -99,7 +102,8 @@ export interface PersonFormData {
   walletAddress: string;
   type: PersonType;
   title: string;
-  salary: number;
+  salaryUSDC: number;
+  salaryXLM: number;
   taxFilingStatus: string;
   allowances: number;
   additionalWithholding: number;
@@ -120,7 +124,8 @@ export function getInitialPersonFormData(): PersonFormData {
     walletAddress: '',
     type: EMPLOYEE,
     title: '',
-    salary: 0,
+    salaryUSDC: 0,
+    salaryXLM: 0,
     taxFilingStatus: 'single',
     allowances: 0,
     additionalWithholding: 0,
@@ -137,6 +142,8 @@ interface ApiRecord {
   email?: string | null;
   type?: string | null;
   title?: string | null;
+  salaryUSDC?: string | number | null;
+  salaryXLM?: string | number | null;
   salary?: string | number | null;
   status?: string | null;
   verified?: boolean | null;
@@ -144,9 +151,18 @@ interface ApiRecord {
 }
 
 export function mapApiRecordToPerson(record: ApiRecord): Person {
-  let salary = 0;
-  if (record.salary !== null && record.salary !== undefined) {
-    salary = typeof record.salary === 'string' ? parseFloat(record.salary) : record.salary;
+  let salaryUSDC = 0;
+  if (record.salaryUSDC !== null && record.salaryUSDC !== undefined) {
+    salaryUSDC = typeof record.salaryUSDC === 'string' ? parseFloat(record.salaryUSDC) : record.salaryUSDC;
+  }
+
+  let salaryXLM = 0;
+  if (record.salaryXLM !== null && record.salaryXLM !== undefined) {
+    salaryXLM = typeof record.salaryXLM === 'string' ? parseFloat(record.salaryXLM) : record.salaryXLM;
+  }
+
+  if (salaryUSDC === 0 && record.salary !== null && record.salary !== undefined) {
+    salaryUSDC = typeof record.salary === 'string' ? parseFloat(record.salary) : record.salary;
   }
 
   return {
@@ -156,7 +172,8 @@ export function mapApiRecordToPerson(record: ApiRecord): Person {
     email: record.email || '',
     type: (record.type as PersonType) || EMPLOYEE,
     title: record.title || undefined,
-    salary,
+    salaryUSDC,
+    salaryXLM,
     verified: record.status === 'active' || record.verified || false,
     createdAt: record.createdAt || new Date().toISOString(),
   };

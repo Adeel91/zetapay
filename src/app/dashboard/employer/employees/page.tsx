@@ -17,6 +17,8 @@ function mapRecordToPerson(record: typeof employees.$inferSelect): Person {
     email: record.email || 'no-email@company.com',
     type: inferredType,
     title: record.title || undefined,
+    salaryUSDC: record.salaryUSDC ? parseFloat(record.salaryUSDC) : 0,
+    salaryXLM: record.salaryXLM ? parseFloat(record.salaryXLM) : 0,
     verified: record.status === 'active',
     createdAt: record.createdAt
       ? new Date(record.createdAt).toISOString().split('T')[0]

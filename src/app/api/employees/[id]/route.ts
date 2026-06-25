@@ -52,13 +52,21 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       walletAddress,
       type,
       title,
-      salary,
+      salaryUSDC,
+  salaryXLM,
       taxFilingStatus,
       allowances,
       additionalWithholding,
       isExempt,
       status,
     } = body;
+
+    if ((!salaryUSDC || salaryUSDC <= 0) && (!salaryXLM || salaryXLM <= 0)) {
+  return NextResponse.json(
+    { error: 'At least one salary (USDC or XLM) must be provided' },
+    { status: 400 }
+  );
+}
 
     const existing = await db
       .select()
@@ -78,7 +86,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         walletAddress: walletAddress || existing[0].walletAddress,
         type: type || existing[0].type,
         title: title ?? existing[0].title,
-        salary: salary ?? existing[0].salary,
+        salaryUSDC: salaryUSDC !== undefined ? String(salaryUSDC) : existing[0].salaryUSDC,
+    salaryXLM: salaryXLM !== undefined ? String(salaryXLM) : existing[0].salaryXLM,
         taxFilingStatus: taxFilingStatus || existing[0].taxFilingStatus,
         allowances:
           allowances !== undefined ? parseInt(String(allowances), 10) : existing[0].allowances,

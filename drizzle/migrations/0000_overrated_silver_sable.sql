@@ -49,6 +49,8 @@ CREATE TABLE "employees" (
 	"type" "person_type" DEFAULT 'employee',
 	"status" "employee_status" DEFAULT 'active',
 	"title" varchar(255),
+	"salary_usdc" numeric(20, 7) DEFAULT '0',
+	"salary_xlm" numeric(20, 7) DEFAULT '0',
 	"tax_filing_status" "tax_filing_status" DEFAULT 'single',
 	"allowances" integer DEFAULT 0,
 	"additional_withholding" numeric(10, 2) DEFAULT '0',

@@ -1,4 +1,8 @@
-import 'dotenv/config';
+if (typeof window === 'undefined' && process.release?.name === 'node') {
+  // Only execute this block if we are strictly inside a true Node.js background worker process
+  const dotenv = require('dotenv');
+  dotenv.config();
+}
 
 export const databaseConfig = {
   databaseUrl: process.env.DATABASE_URL!,

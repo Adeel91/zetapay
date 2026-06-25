@@ -9,6 +9,21 @@ interface RecentRecipientsProps {
 }
 
 export function RecentRecipients({ people, onSelect }: RecentRecipientsProps) {
+  const hasSalary = (person: Person) => {
+    return (person.salaryUSDC && person.salaryUSDC > 0) || (person.salaryXLM && person.salaryXLM > 0);
+  };
+
+  const getSalaryDisplay = (person: Person) => {
+    const parts = [];
+    if (person.salaryUSDC && person.salaryUSDC > 0) {
+      parts.push(`${person.salaryUSDC.toLocaleString()} USDC`);
+    }
+    if (person.salaryXLM && person.salaryXLM > 0) {
+      parts.push(`${person.salaryXLM.toLocaleString()} XLM`);
+    }
+    return parts.join(' • ') || '0';
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -23,7 +38,7 @@ export function RecentRecipients({ people, onSelect }: RecentRecipientsProps) {
           >
             <span className="font-medium text-slate-700">{person.name}</span>
             <span className="text-xs text-slate-400">
-              ${person.salary?.toLocaleString() || '0'}
+              {hasSalary(person) ? getSalaryDisplay(person) : '0'}
             </span>
           </button>
         ))}

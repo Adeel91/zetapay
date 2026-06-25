@@ -43,7 +43,9 @@ export function PersonInfoCard({ person, onCopyWallet }: PersonInfoCardProps) {
     return colors[type?.toLowerCase() || ''] || 'from-emerald-100 to-emerald-200 text-emerald-700';
   };
 
-  const hasSalary = person.salary !== undefined && person.salary !== null && person.salary > 0;
+  const hasSalaryUSDC = person.salaryUSDC !== undefined && person.salaryUSDC !== null && person.salaryUSDC > 0;
+  const hasSalaryXLM = person.salaryXLM !== undefined && person.salaryXLM !== null && person.salaryXLM > 0;
+  const hasAnySalary = hasSalaryUSDC || hasSalaryXLM;
 
   return (
     <div className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-300 hover:border-emerald-200 hover:shadow-lg hover:shadow-emerald-500/5">
@@ -142,13 +144,24 @@ export function PersonInfoCard({ person, onCopyWallet }: PersonInfoCardProps) {
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
           <div className="flex flex-wrap items-center gap-4 text-sm">
-            {hasSalary ? (
-              <div className="flex items-center gap-2 rounded-full bg-emerald-50/80 px-3 py-1">
-                <span className="text-xs font-medium text-emerald-600">Salary</span>
-                <span className="font-semibold text-slate-900">
-                  ${person.salary?.toLocaleString()}
-                </span>
-                <span className="text-xs text-slate-400">/ mo</span>
+            {hasAnySalary ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {hasSalaryUSDC && (
+                  <div className="flex items-center gap-2 rounded-full bg-emerald-50/80 px-3 py-1">
+                    <span className="text-xs font-medium text-emerald-600">USDC</span>
+                    <span className="font-semibold text-slate-900">
+                      {person.salaryUSDC.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {hasSalaryXLM && (
+                  <div className="flex items-center gap-2 rounded-full bg-blue-50/80 px-3 py-1">
+                    <span className="text-xs font-medium text-blue-600">XLM</span>
+                    <span className="font-semibold text-slate-900">
+                      {person.salaryXLM.toLocaleString()}
+                    </span>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2 rounded-full bg-slate-50/80 px-3 py-1">
