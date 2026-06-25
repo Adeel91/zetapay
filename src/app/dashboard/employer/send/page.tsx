@@ -15,6 +15,7 @@ import { Person } from '@/types/person';
 import { PaymentFormData, BalanceData } from '@/types/payroll';
 import { mapApiRecordToPerson } from '@/types/person';
 import { ZetaPayProver, EmployeeInput } from '@/lib/zk/prover';
+import type { ProofResult } from '@/types/zk';
 
 interface ApiRecord {
   id: string | number;
@@ -37,6 +38,17 @@ function generateSalt(): number {
   return Math.floor(Math.random() * 1000000000);
 }
 
+function proofBytesToNumericArray(proof: Uint8Array): number[] {
+  return Array.from(proof, (byte) => byte);
+}
+
+function normalizeProofPayload(proofResult: ProofResult) {
+  return {
+    proof: proofBytesToNumericArray(proofResult.proof),
+    publicInputs: proofResult.publicInputs,
+  };
+}
+
 export default function SendPaymentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -48,7 +60,10 @@ export default function SendPaymentPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [generatingProof, setGeneratingProof] = useState(false);
-  const [zkProof, setZkProof] = useState<any>(null);
+  const [circuitLoading, setCircuitLoading] = useState(true);
+  const [circuitReady, setCircuitReady] = useState(false);
+  const [circuitError, setCircuitError] = useState<string | null>(null);
+  const [zkProof, setZkProof] = useState<ProofResult | null>(null);
 
   const [formData, setFormData] = useState<PaymentFormData>({
     personId: '',
@@ -152,6 +167,40 @@ export default function SendPaymentPage() {
   useEffect(() => {
     let isMounted = true;
 
+    const preloadCircuit = async () => {
+      setCircuitLoading(true);
+      setCircuitError(null);
+
+      try {
+        await ZetaPayProver.preloadCircuit();
+        if (isMounted) {
+          setCircuitReady(true);
+        }
+      } catch (err) {
+        console.error('Failed to load payroll circuit:', err);
+        if (isMounted) {
+          setCircuitError(
+            err instanceof Error ? err.message : 'Failed to load ZK payroll circuit',
+          );
+          setCircuitReady(false);
+        }
+      } finally {
+        if (isMounted) {
+          setCircuitLoading(false);
+        }
+      }
+    };
+
+    preloadCircuit();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
     const loadInitialData = async () => {
       if (!isMounted) return;
       await Promise.all([fetchPeople(), fetchBalance()]);
@@ -205,7 +254,13 @@ export default function SendPaymentPage() {
     navigator.clipboard.writeText(text);
   };
 
-  const generateZKProof = async () => {
+  const generateZKProof = async (): Promise<ProofResult> => {
+    if (!circuitReady) {
+      throw new Error(
+        circuitError || 'Payroll circuit is still loading. Please wait a moment and try again.',
+      );
+    }
+
     if (!selectedPerson) {
       throw new Error('Please select a recipient employee first.');
     }
@@ -238,7 +293,7 @@ export default function SendPaymentPage() {
         salt: randomSalt.toString()
       });
 
-      // ✅ Run the witness parsing and proof generation sequence - NO FETCH NEEDED
+      // Run witness generation and proof compilation against the preloaded circuit artifact
       const proofResult = await ZetaPayProver.generatePayrollProof(activeEmployees);
 
       console.log('✅ Cryptographic proof compiled successfully!');
@@ -275,6 +330,8 @@ export default function SendPaymentPage() {
         throw new Error('Verification data compilation output was empty.');
       }
 
+      const zkProofPayload = normalizeProofPayload(proofData);
+
       console.log('🚀 Sending payroll payload to server...');
 
       const response = await fetch(API.stellar.send, {
@@ -285,10 +342,7 @@ export default function SendPaymentPage() {
           amount: parseFloat(formData.amount),
           currency: formData.currency,
           memo: formData.memo || `Payment to ${selectedPerson.name}`,
-          zkProof: {
-            proof: Array.from(proofData.proof),
-            publicInputs: proofData.publicInputs,
-          },
+          zkProof: zkProofPayload,
         }),
       });
 
@@ -378,8 +432,8 @@ export default function SendPaymentPage() {
             balance={balance}
             balanceLoading={balanceLoading}
             balanceError={balanceError}
-            submitting={submitting || generatingProof}
-            error={error}
+            submitting={submitting || generatingProof || circuitLoading}
+            error={error || circuitError}
             onPersonSelect={handlePersonSelect}
             onFormChange={handleFormChange}
             onSubmit={handleSubmit}
