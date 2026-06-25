@@ -1,3 +1,15 @@
+# Payroll Contract Dependencies
+# 
+# Core payroll processing contract for ZetaPay.
+# Handles batch payroll with ZK proof verification.
+# 
+# # Features
+# - Batch processing with atomic transfers
+# - ZK proof verification via verifier contract
+# - Merkle tree integration for employee verification
+# - Retry mechanism for failed payments
+# - Full event logging for audit trail
+
 [package]
 name = "zetapay-payroll"
 version = "0.1.0"

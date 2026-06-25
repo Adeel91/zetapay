@@ -1,7 +1,6 @@
 use crate::{PayrollBatch, PayrollConfig};
 use soroban_sdk::{symbol_short, Address, Env, Symbol, Vec};
 
-// Fixed to use the modern compile-time short string macro helper
 const CONFIG_KEY: Symbol = symbol_short!("config");
 const BATCH_COUNT_KEY: Symbol = symbol_short!("btch_cnt");
 

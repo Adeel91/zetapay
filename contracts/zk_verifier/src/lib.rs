@@ -1,5 +1,5 @@
 #![no_std]
-#![allow(clippy::too_many_arguments)] // Fixes macro-generated arguments linting error
+#![allow(clippy::too_many_arguments)]
 
 use soroban_sdk::{contract, contractimpl, Bytes, BytesN, Env, Vec};
 

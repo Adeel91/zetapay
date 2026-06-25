@@ -1,3 +1,11 @@
+# ZetaPay Smart Contracts Workspace
+# 
+# This workspace contains two Soroban smart contracts:
+# - payroll: Main payroll processing contract with ZK verification
+# - zk_verifier: ZK proof verification contract using Protocol 26
+#
+# Built for Stellar Protocol 26 with BN254 host function support
+
 [workspace]
 members = [
     "./payroll",
