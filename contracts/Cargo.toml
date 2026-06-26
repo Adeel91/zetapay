@@ -1,9 +1,9 @@
 # ZetaPay Smart Contracts Workspace
 #
 # Single unified payroll crate combining execution and ZK verification.
-# Built for Stellar Testnet targeting Protocol 21+ (soroban-sdk v21).
-# BN254 pairing-based UltraHonk proof verification will be enabled when
-# Protocol 26 bn254_pairing host functions are activated on-chain.
+# Built for Stellar Testnet targeting Protocol 26 (soroban-sdk v26).
+# Uses native BN254 host functions (CAP-80) for on-chain curve-point
+# validation of Barretenberg UltraHonk KZG opening commitments.
 
 [workspace]
 members = [
@@ -12,7 +12,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-soroban-sdk = "21.7.0"
+soroban-sdk = "26.1.0"
 
 [profile.release]
 opt-level     = "z"

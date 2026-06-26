@@ -19,10 +19,10 @@
  *    actual capacity, making the limit transparent to callers.
  */
 
-import { Noir }                  from '@noir-lang/noir_js';
-import { BarretenbergBackend }   from '@noir-lang/backend_barretenberg';
-import type { InputMap }         from '@noir-lang/noirc_abi';
-import type { CompiledCircuit }  from '@noir-lang/types';
+import { Noir } from '@noir-lang/noir_js';
+import { BarretenbergBackend } from '@noir-lang/backend_barretenberg';
+import type { InputMap } from '@noir-lang/noirc_abi';
+import type { CompiledCircuit } from '@noir-lang/types';
 
 import {
   generateCommitment,
@@ -47,23 +47,23 @@ export interface FullProofResult extends ProofResult {
 // ---------------------------------------------------------------------------
 
 export interface EmployeeInput {
-  id:     bigint;
+  id: bigint;
   salary: bigint;
-  salt:   bigint;
+  salt: bigint;
 }
 
 export interface PayrollCircuitInputs {
-  employee_ids:          string[];
-  salaries:              string[];
-  salts:                 string[];
-  commitments:           string[];
-  merkle_roots:          string[];
-  merkle_proofs:         string[][];
-  merkle_path_indices:   string[][];
-  merkle_depths:         number[];
-  total_amount:          string;
-  employee_count:        number;
-  public_inputs:         string[];
+  employee_ids: string[];
+  salaries: string[];
+  salts: string[];
+  commitments: string[];
+  merkle_roots: string[];
+  merkle_proofs: string[][];
+  merkle_path_indices: string[][];
+  merkle_depths: number[];
+  total_amount: string;
+  employee_count: number;
+  public_inputs: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ let _circuitCache: Promise<CompiledCircuit> | null = null;
 export function loadPayrollCircuit(): Promise<CompiledCircuit> {
   if (!_circuitCache) {
     _circuitCache = import('@/lib/zk/circuits/payroll.json').then(
-      (m) => m.default as CompiledCircuit,
+      (m) => m.default as CompiledCircuit
     );
   }
   return _circuitCache;
@@ -96,19 +96,20 @@ export function loadPayrollCircuit(): Promise<CompiledCircuit> {
 function readCircuitCapacity(circuit: CompiledCircuit): number {
   // The Noir ABI represents fixed-size arrays as:
   //   { name: "employee_ids", type: { kind: "array", length: N, type: { kind: "field" } } }
-  const param = (circuit.abi.parameters as Array<{ name: string; type: { kind: string; length?: number } }>)
-    .find((p) => p.name === 'employee_ids');
+  const param = (
+    circuit.abi.parameters as Array<{ name: string; type: { kind: string; length?: number } }>
+  ).find((p) => p.name === 'employee_ids');
 
   if (!param) {
     throw new Error(
       'Circuit ABI does not contain an `employee_ids` parameter. ' +
-      'Ensure the payroll.json artifact is up to date.',
+        'Ensure the payroll.json artifact is up to date.'
     );
   }
   if (param.type.kind !== 'array' || typeof param.type.length !== 'number') {
     throw new Error(
       `Circuit ABI parameter \`employee_ids\` is not a fixed-size array ` +
-      `(found kind="${param.type.kind}"). Re-compile the payroll circuit.`,
+        `(found kind="${param.type.kind}"). Re-compile the payroll circuit.`
     );
   }
   return param.type.length;
@@ -119,10 +120,10 @@ function readCircuitCapacity(circuit: CompiledCircuit): number {
 // ---------------------------------------------------------------------------
 
 const ZERO_FIELD = ZERO_FIELD_HEX;
-const ZERO_U64   = '0';
+const ZERO_U64 = '0';
 const ZERO_DEPTH = 0;
 const ZERO_PROOF = Array<string>(MERKLE_DEPTH).fill(ZERO_FIELD);
-const ZERO_PATH  = Array<string>(MERKLE_DEPTH).fill(ZERO_FIELD);
+const ZERO_PATH = Array<string>(MERKLE_DEPTH).fill(ZERO_FIELD);
 
 // ---------------------------------------------------------------------------
 // Main prover class
@@ -144,21 +145,21 @@ export class ZetaPayProver {
    *   salaries, and commitments must all be zero.
    */
   static async buildCircuitInputs(
-    employees:    EmployeeInput[],
-    circuit?:     CompiledCircuit,
+    employees: EmployeeInput[],
+    circuit?: CompiledCircuit
   ): Promise<PayrollCircuitInputs> {
     if (employees.length === 0) {
       throw new Error('Employee batch must contain at least one entry.');
     }
 
-    const artifact      = circuit ?? await loadPayrollCircuit();
-    const circuitWidth  = readCircuitCapacity(artifact);
+    const artifact = circuit ?? (await loadPayrollCircuit());
+    const circuitWidth = readCircuitCapacity(artifact);
 
     if (employees.length > circuitWidth) {
       throw new Error(
         `Batch of ${employees.length} employees exceeds this circuit's ` +
-        `compiled capacity of ${circuitWidth}. ` +
-        `Re-compile the Noir circuit with a larger MAX_EMPLOYEES constant.`,
+          `compiled capacity of ${circuitWidth}. ` +
+          `Re-compile the Noir circuit with a larger MAX_EMPLOYEES constant.`
       );
     }
 
@@ -172,21 +173,21 @@ export class ZetaPayProver {
     const tree = await buildMerkleTree(activeCommitments);
 
     // ── Step 3: Build padded arrays of exactly circuitWidth ──────────────────
-    const employee_ids:        string[]   = [];
-    const salaries:            string[]   = [];
-    const salts:               string[]   = [];
-    const commitments:         string[]   = [];
-    const public_inputs:       string[]   = [];
-    const merkle_roots:        string[]   = [];
-    const merkle_proofs:       string[][] = [];
+    const employee_ids: string[] = [];
+    const salaries: string[] = [];
+    const salts: string[] = [];
+    const commitments: string[] = [];
+    const public_inputs: string[] = [];
+    const merkle_roots: string[] = [];
+    const merkle_proofs: string[][] = [];
     const merkle_path_indices: string[][] = [];
-    const merkle_depths:       number[]   = [];
+    const merkle_depths: number[] = [];
 
     let calculatedTotal = BigInt(0);
 
     for (let i = 0; i < circuitWidth; i++) {
       if (i < employees.length) {
-        const emp        = employees[i];
+        const emp = employees[i];
         const commitment = activeCommitments[i];
 
         employee_ids.push(toFieldHex(emp.id));
@@ -198,9 +199,7 @@ export class ZetaPayProver {
 
         merkle_proofs.push(tree.proofs[i]);
         merkle_path_indices.push(
-          tree.path_indices[i].map((bit) =>
-            bit === 1 ? toFieldHex(BigInt(1)) : ZERO_FIELD,
-          ),
+          tree.path_indices[i].map((bit) => (bit === 1 ? toFieldHex(BigInt(1)) : ZERO_FIELD))
         );
         merkle_depths.push(tree.depths[i]);
 
@@ -228,7 +227,7 @@ export class ZetaPayProver {
       merkle_proofs,
       merkle_path_indices,
       merkle_depths,
-      total_amount:   calculatedTotal.toString(),
+      total_amount: calculatedTotal.toString(),
       employee_count: employees.length,
       public_inputs,
     };
@@ -248,22 +247,35 @@ export class ZetaPayProver {
    */
   static async generatePayrollProof(employees: EmployeeInput[]): Promise<FullProofResult> {
     const circuitArtifact = await loadPayrollCircuit();
-    const inputs          = await this.buildCircuitInputs(employees, circuitArtifact);
+    const inputs = await this.buildCircuitInputs(employees, circuitArtifact);
 
     const backend = new BarretenbergBackend(circuitArtifact);
-    const noir    = new Noir(circuitArtifact);
+    const noir = new Noir(circuitArtifact);
 
     try {
       const { witness } = await noir.execute(inputs as unknown as InputMap);
-      const result      = await backend.generateProof(witness);
+      const result = await backend.generateProof(witness);
 
       return {
-        proof:         result.proof,
-        publicInputs:  result.publicInputs as string[],
+        proof: result.proof,
+        publicInputs: result.publicInputs as string[],
         circuitInputs: inputs,
       };
     } finally {
       await backend.destroy();
     }
+  }
+}
+
+export async function getVerificationKey(): Promise<string> {
+  const circuitArtifact = await loadPayrollCircuit();
+  const backend = new BarretenbergBackend(circuitArtifact);
+  try {
+    const vk = await backend.getVerificationKey();
+    // Convert to hex string
+    const vkHex = Array.from(vk, (b) => b.toString(16).padStart(2, '0')).join('');
+    return `0x${vkHex}`;
+  } finally {
+    await backend.destroy();
   }
 }

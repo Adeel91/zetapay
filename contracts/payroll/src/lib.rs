@@ -5,6 +5,8 @@ mod contract;
 mod events;
 mod storage;
 mod verifier;
+#[cfg(test)]
+mod test;
 
 pub use contract::*;
 pub use events::*;
@@ -68,6 +70,7 @@ pub struct PayrollConfig {
     pub employer:        Address,
     pub token_contract:  Address,
     pub total_batches:   u64,
+    pub verification_key: Bytes,
 }
 
 /// Summary statistics for an employer's payroll activity.

@@ -1,4 +1,4 @@
-#![cfg(test)]
+extern crate std;
 
 use soroban_sdk::{
     testutils::Address as _,
@@ -41,19 +41,23 @@ fn make_employee(env: &Env, address: Address, amount: i128, index: u64) -> Payro
     }
 }
 
-/// Build a minimal proof blob (128 bytes) that passes the structure check.
+/// Build a proof blob of `len` bytes.  The verifier only checks `len >= 128`,
+/// so any content passes the structural check.  Short proofs (< 128 bytes) are
+/// used exclusively by the negative `test_short_proof_fails` test.
 fn make_proof(env: &Env, len: usize) -> Bytes {
-    let data = (0..len).map(|i| (i & 0xff) as u8).collect::<std::vec::Vec<u8>>();
+    let data: std::vec::Vec<u8> = (0..len).map(|i| (i & 0xff) as u8).collect();
     Bytes::from_slice(env, &data)
 }
 
-/// Build public_inputs: one valid BN254 scalar per employee.
+/// Build public_inputs matching make_employee's salary_commitment (all = 0x01).
+///
+/// The verifier checks `public_inputs[i] == salary_commitment[i]`, so these
+/// must use the same value as the commitment produced by `make_employee`.
 fn make_public_inputs(env: &Env, count: usize) -> Vec<BytesN<32>> {
     let mut v = Vec::new(env);
-    for i in 0..count {
+    for _ in 0..count {
         let mut arr = [0u8; 32];
-        // Use value i+1 so every element is non-zero and < r.
-        arr[31] = ((i + 1) & 0xff) as u8;
+        arr[31] = 1; // matches make_employee commitment
         v.push_back(BytesN::from_array(env, &arr));
     }
     v
@@ -98,7 +102,7 @@ fn test_submit_single_employee_batch() {
 
     client.initialize(&employer, &token_contract);
 
-    let token_admin = token::StellarAssetContractClient::new(&env, &token_contract);
+    let token_admin = token::StellarAssetClient::new(&env, &token_contract);
     token_admin.mint(&employer, &10_000);
 
     let employee_addr  = Address::generate(&env);
@@ -143,7 +147,7 @@ fn test_submit_dynamic_batch_five_employees() {
 
     client.initialize(&employer, &token_contract);
 
-    let token_admin = token::StellarAssetContractClient::new(&env, &token_contract);
+    let token_admin = token::StellarAssetClient::new(&env, &token_contract);
     token_admin.mint(&employer, &50_000);
 
     let amounts: [i128; 5] = [8_000, 9_000, 10_000, 11_000, 12_000];
@@ -192,7 +196,7 @@ fn test_submit_batch_wrong_total_fails() {
 
     client.initialize(&employer, &token_contract);
 
-    let token_admin = token::StellarAssetContractClient::new(&env, &token_contract);
+    let token_admin = token::StellarAssetClient::new(&env, &token_contract);
     token_admin.mint(&employer, &20_000);
 
     let mut employees = Vec::new(&env);
@@ -262,7 +266,7 @@ fn test_get_stats_multiple_batches() {
 
     client.initialize(&employer, &token_contract);
 
-    let token_admin = token::StellarAssetContractClient::new(&env, &token_contract);
+    let token_admin = token::StellarAssetClient::new(&env, &token_contract);
     token_admin.mint(&employer, &100_000);
 
     for batch_num in 0..3u64 {

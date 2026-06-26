@@ -14,7 +14,7 @@ impl PayrollContract {
     // -----------------------------------------------------------------------
 
     /// Deploy and configure the contract.
-    pub fn initialize(env: Env, employer: Address, token_contract: Address) -> u64 {
+    pub fn initialize(env: Env, employer: Address, token_contract: Address, verification_key: Bytes) -> u64 {
         employer.require_auth();
 
         if storage::get_config(&env).is_some() {
@@ -25,6 +25,7 @@ impl PayrollContract {
             employer: employer.clone(),
             token_contract,
             total_batches: 0,
+            verification_key,
         };
         storage::set_config(&env, &config);
         events::contract_initialized(&env, &employer);
@@ -68,6 +69,7 @@ impl PayrollContract {
             &public_inputs,
             total_amount,
             &merkle_root,
+            &config.verification_key,
         );
 
         if !proof_valid {
@@ -91,7 +93,7 @@ impl PayrollContract {
             let emp = employees.get(i).unwrap();
             token.transfer(&contract_addr, &emp.address, &emp.payout_amount);
             successful += 1;
-            events::payment_executed(&env, &emp.address, emp.amount_usdc, batch_id);
+            events::payment_executed(&env, &emp.address, emp.payout_amount, batch_id);
         }
 
         let status = if successful == employee_count {
