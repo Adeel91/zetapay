@@ -1,20 +1,12 @@
-# ZetaPay Smart Contracts Workspace
-# 
-# This workspace contains two Soroban smart contracts:
-# - payroll: Main payroll processing contract with ZK verification
-# - zk_verifier: ZK proof verification contract using Protocol 26
-#
-# Built for Stellar Protocol 26 with BN254 host function support
-
 [workspace]
-members = [
-    "./payroll",
-    "./zk_verifier",
-]
 resolver = "2"
+members = [
+    "zk-verifier",
+    "zk-payroll"
+]
 
 [workspace.dependencies]
-soroban-sdk = "21.0.0"
+soroban-sdk = "26.1.0"
 
 [profile.release]
 opt-level = "z"
@@ -25,3 +17,7 @@ debug-assertions = false
 panic = "abort"
 codegen-units = 1
 lto = true
+
+[profile.release-with-logs]
+inherits = "release"
+debug-assertions = true

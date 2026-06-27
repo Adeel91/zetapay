@@ -1,6 +1,0 @@
-# The verifier only needs public inputs
-public_inputs = [
-    0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,
-    0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890,
-    0,0,0,0,0,0,0,0
-]
