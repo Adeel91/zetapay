@@ -1,68 +1,37 @@
-# Example inputs for generating a proof with 2 employees
-employee_ids = [1, 2, 0, 0, 0, 0, 0, 0, 0, 0]
-salaries = [5000, 3000, 0, 0, 0, 0, 0, 0, 0, 0]
-salts = [12345, 67890, 0, 0, 0, 0, 0, 0, 0, 0]
+# ============================================================================
+# Test Input for 3 employees paid in XLM
+# ============================================================================
+
+employee_ids = [1, 2, 3, 0, 0, 0, 0, 0, 0, 0]
+salaries = [5000, 3000, 7000, 0, 0, 0, 0, 0, 0, 0]
+salts = [12345, 67890, 11111, 0, 0, 0, 0, 0, 0, 0]
+payee_types = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
+token_type = 0
+
+# 🔥 AUTO-GENERATED from nargo test
 commitments = [
-    0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,
-    0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890,
-    0,0,0,0,0,0,0,0
+    "0x0f5823cda114b3bfcedbd8a355eb8124d6bbc9b7aa89bf83cf6f4c034ebee7c8",
+    "0x1c522745bf8b754807b4f9d8dd41af618f2cde2cc983931b33658cba64076b28",
+    "0x1a05f1abdf3c8c98ae280a5e830c9e31b23d3e1e731cfca64eee5aa2295476be",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
 ]
 
-# Merkle roots for each employee (all same root in a real batch)
-merkle_roots = [
-    0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,
-    0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,
-    0,0,0,0,0,0,0,0
-]
-
-# Merkle proofs for each employee
-merkle_proofs = [
-    [
-        0x1111111111111111111111111111111111111111111111111111111111111111,
-        0x2222222222222222222222222222222222222222222222222222222222222222,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-    ],
-    [
-        0x3333333333333333333333333333333333333333333333333333333333333333,
-        0x4444444444444444444444444444444444444444444444444444444444444444,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-    ],
-    [0; 32],
-    [0; 32],
-    [0; 32],
-    [0; 32],
-    [0; 32],
-    [0; 32],
-    [0; 32],
-    [0; 32]
-]
-
-# Merkle path indices for each employee
-merkle_path_indices = [
-    [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0; 32],
-    [0; 32],
-    [0; 32],
-    [0; 32],
-    [0; 32],
-    [0; 32],
-    [0; 32],
-    [0; 32]
-]
-
-# Merkle depth for each employee
-merkle_depths = [2, 2, 0, 0, 0, 0, 0, 0, 0, 0]
-
-# Total amount
-total_amount = 8000
-
-# Employee count
+total_amount = 15000
+employee_total = 8000
+contractor_total = 7000
+freelancer_total = 0
+vendor_total = 0
+consultant_total = 0
 employee_count = 2
-
-# Public inputs (commitments for verification)
-public_inputs = [
-    0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,
-    0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890,
-    0,0,0,0,0,0,0,0
-]
+contractor_count = 1
+freelancer_count = 0
+vendor_count = 0
+consultant_count = 0
+token_type_public = 0
+employee_count_total = 3

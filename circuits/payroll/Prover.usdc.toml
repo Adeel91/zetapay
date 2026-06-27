@@ -1,0 +1,37 @@
+# ============================================================================
+# Test Input for 2 employees paid in USDC
+# ============================================================================
+
+employee_ids = [4, 5, 0, 0, 0, 0, 0, 0, 0, 0]
+salaries = [10000, 15000, 0, 0, 0, 0, 0, 0, 0, 0]
+salts = [99999, 88888, 0, 0, 0, 0, 0, 0, 0, 0]
+payee_types = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+token_type = 1
+
+# 🔥 AUTO-GENERATED from nargo test
+commitments = [
+    "0x0783882796f65be341b0eae7fe3531fd6d153b45e6731955852b95bf952fa438",
+    "0x0927830ea00545377d2e2894c27c195ba5d98e537b536c8f6c0ff0cd5cc572e1",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+]
+
+total_amount = 25000
+employee_total = 25000
+contractor_total = 0
+freelancer_total = 0
+vendor_total = 0
+consultant_total = 0
+employee_count = 2
+contractor_count = 0
+freelancer_count = 0
+vendor_count = 0
+consultant_count = 0
+token_type_public = 1
+employee_count_total = 2

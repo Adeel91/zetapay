@@ -30,3 +30,6 @@ yarn type-check
 # Run linting & formatting
 yarn lint
 ```
+
+
+Run `node scripts/generate-commitment.js` to generate and save commitments in Prover.toml and Prover.usdc.toml OR yarn circuits:commitments
