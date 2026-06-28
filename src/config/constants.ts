@@ -26,6 +26,7 @@ export const ROUTES = {
       `${DASHBOARD}/${EMPLOYER}/employees/${id}/payroll/${runId}`,
     history: `${DASHBOARD}/${EMPLOYER}/history`,
     settings: `${DASHBOARD}/${EMPLOYER}/settings`,
+    payrollNew: `${DASHBOARD}/${EMPLOYER}/payroll/new`,
   },
   auditor: {
     root: `${DASHBOARD}/${AUDITOR}`,

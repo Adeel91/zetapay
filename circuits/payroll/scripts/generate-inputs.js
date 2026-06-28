@@ -1,11 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { buildPoseidon } from 'circomlibjs';
+import { poseidonHash, buildMerkleTree } from './merkle.js';
 
 const BATCH_SIZE = 128;
-
-const poseidon = await buildPoseidon();
-const F = poseidon.F;
 
 const inputPath = path.join(process.cwd(), 'circuits/payroll/inputs/xlm.json');
 const data = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
@@ -16,30 +13,6 @@ function padArray(values, padValue = 0) {
   }
 
   return [...values, ...Array.from({ length: BATCH_SIZE - values.length }, () => padValue)];
-}
-
-function poseidonHash(values) {
-  return F.toString(poseidon(values.map((value) => BigInt(value))));
-}
-
-function merkleRoot(leaves) {
-  if (leaves.length !== BATCH_SIZE) {
-    throw new Error(`Merkle tree expects exactly ${BATCH_SIZE} leaves`);
-  }
-
-  let level = leaves.map((leaf) => leaf.toString());
-
-  while (level.length > 1) {
-    const next = [];
-
-    for (let i = 0; i < level.length; i += 2) {
-      next.push(poseidonHash([level[i], level[i + 1]]));
-    }
-
-    level = next;
-  }
-
-  return level[0];
 }
 
 data.payee_ids = padArray(data.payee_ids);
@@ -57,21 +30,23 @@ for (let i = 0; i < BATCH_SIZE; i++) {
     continue;
   }
 
-  commitments.push(
-    poseidonHash([
-      data.payee_ids[i],
-      data.recipient_hashes[i],
-      data.amounts[i],
-      data.payee_types[i],
-      data.token_types[i],
-      data.period_id,
-      data.salts[i],
-    ])
-  );
+  const commitment = await poseidonHash([
+    BigInt(data.payee_ids[i]),
+    BigInt(data.recipient_hashes[i]),
+    BigInt(data.amounts[i]),
+    BigInt(data.payee_types[i]),
+    BigInt(data.token_types[i]),
+    BigInt(data.period_id),
+    BigInt(data.salts[i]),
+  ]);
+
+  commitments.push(commitment.toString());
 }
 
+const tree = await buildMerkleTree(commitments);
+
 data.commitments = commitments;
-data.batch_root_public = merkleRoot(commitments);
+data.batch_root_public = tree.root.toString();
 
 fs.writeFileSync(inputPath, JSON.stringify(data, null, 2));
 

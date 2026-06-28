@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPlus, Wallet, Mail, User, Shield, Users, DollarSign } from 'lucide-react';
+import { UserPlus, Wallet, Mail, User, Shield, Users, DollarSign, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ROUTES } from '@/config';
@@ -26,6 +26,7 @@ export function AddPersonForm({
     type: initialData?.type || 'employee',
     title: initialData?.title || '',
     salary: initialData?.salary || 0,
+    preferredCurrency: initialData?.preferredCurrency || 'USDC',
     taxFilingStatus: initialData?.taxFilingStatus || 'single',
     allowances: initialData?.allowances || 0,
     additionalWithholding: initialData?.additionalWithholding || 0,
@@ -67,6 +68,7 @@ export function AddPersonForm({
           classification: formData.type,
           title: formData.title,
           salary: formData.salary,
+          preferredCurrency: formData.preferredCurrency,
           taxFilingStatus: formData.taxFilingStatus,
           allowances: formData.allowances,
           additionalWithholding: formData.additionalWithholding,
@@ -211,6 +213,32 @@ export function AddPersonForm({
                   placeholder="5000.00"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                Preferred Payout Currency
+              </label>
+              <div className="relative mt-1">
+                <Coins className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <select
+                  required
+                  value={formData.preferredCurrency}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      preferredCurrency: e.target.value as 'XLM' | 'USDC',
+                    })
+                  }
+                  className="w-full rounded-xl border border-slate-200 py-2.5 pr-4 pl-10 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                >
+                  <option value="USDC">USDC</option>
+                  <option value="XLM">XLM</option>
+                </select>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Used as the default currency when creating payroll runs.
+              </p>
             </div>
 
             <div>

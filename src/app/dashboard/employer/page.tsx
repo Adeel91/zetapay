@@ -39,7 +39,7 @@ export default function EmployerDashboard() {
       const response = await fetch(API.employees.byEnterprise(parseInt(enterpriseId)));
       const data = await response.json();
 
-      const mapped: EmployeeView[] = data.map((emp: ApiEmployeeRecord) => ({
+      const mapped: EmployeeView[] = data?.map((emp: ApiEmployeeRecord) => ({
         id: String(emp.id),
         name: emp.fullName || 'Unknown',
         wallet: emp.walletAddress || 'G...',

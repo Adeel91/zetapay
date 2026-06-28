@@ -2,13 +2,12 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { db } from '@/lib/db';
-import { 
-  payrollRuns, 
-  payrollEmployees, 
-  employees, 
-  enterprises,
+import {
+  payrollRuns,
+  payrollEmployees,
+  employees,
   zkProofs,
-  transactionLogs 
+  transactionLogs,
 } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -16,33 +15,18 @@ import crypto from 'crypto';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { 
-      recipient, 
-      amount, 
-      currency, 
-      memo, 
-      zkProof,
-      employeeId,
-      periodStart,
-      periodEnd,
-    } = body;
+    const { recipient, amount, currency, memo, zkProof, employeeId, periodStart, periodEnd } = body;
 
     // Validate
     if (!recipient || !amount || amount <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid payment details' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid payment details' }, { status: 400 });
     }
 
     const cookieStore = await cookies();
     const enterpriseId = cookieStore.get('enterpriseId')?.value;
 
     if (!enterpriseId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // 1. Get employee
@@ -76,10 +60,7 @@ export async function POST(request: Request) {
     }
 
     if (!employee) {
-      return NextResponse.json(
-        { error: 'Employee not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
 
     // 2. Generate audit key (32 characters max)
@@ -231,7 +212,6 @@ export async function POST(request: Request) {
         wallet: employee.walletAddress,
       },
     });
-
   } catch (error) {
     console.error('Payment error:', error);
     return NextResponse.json(

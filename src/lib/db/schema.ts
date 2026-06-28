@@ -100,6 +100,7 @@ export const employees = pgTable(
     status: employeeStatusEnum('status').default('active'),
     title: varchar('title', { length: 255 }),
     salary: decimal('salary', { precision: 20, scale: 7 }).default('0'),
+    preferredCurrency: varchar('preferred_currency', { length: 10 }).default('USDC'),
     taxFilingStatus: taxFilingStatusEnum('tax_filing_status').default('single'),
     allowances: integer('allowances').default(0),
     additionalWithholding: decimal('additional_withholding', { precision: 10, scale: 2 }).default(
@@ -116,6 +117,7 @@ export const employees = pgTable(
     emailIdx: index('idx_employees_email').on(table.email),
     typeIdx: index('idx_employees_type').on(table.type),
     statusIdx: index('idx_employees_status').on(table.status),
+    preferredCurrencyIdx: index('idx_employees_preferred_currency').on(table.preferredCurrency),
     enterpriseStatusIdx: index('idx_employees_enterprise_status').on(
       table.enterpriseId,
       table.status
@@ -169,6 +171,16 @@ export const payrollRuns = pgTable(
     totalDeductions: decimal('total_deductions', { precision: 20, scale: 7 })
       .notNull()
       .default('0'),
+
+    totalXlm: decimal('total_xlm', { precision: 20, scale: 7 }).notNull().default('0'),
+    totalUsdc: decimal('total_usdc', { precision: 20, scale: 7 }).notNull().default('0'),
+    payeeCount: integer('payee_count').default(0),
+    batchSize: integer('batch_size').default(128),
+    batchCount: integer('batch_count').default(1),
+    batchRoot: text('batch_root'),
+    payrollRunHash: text('payroll_run_hash'),
+    contractBatchId: integer('contract_batch_id'),
+
     txHash: varchar('tx_hash', { length: 64 }).unique(),
     auditKey: varchar('audit_key', { length: 64 }).unique().notNull(),
     auditKeySalt: varchar('audit_key_salt', { length: 64 }),
@@ -189,6 +201,8 @@ export const payrollRuns = pgTable(
     statusIdx: index('idx_payroll_status').on(table.status),
     txIdx: index('idx_payroll_tx').on(table.txHash),
     auditKeyIdx: index('idx_payroll_audit_key').on(table.auditKey),
+    batchRootIdx: index('idx_payroll_batch_root').on(table.batchRoot),
+    payrollRunHashIdx: index('idx_payroll_run_hash').on(table.payrollRunHash),
     enterpriseStatusIdx: index('idx_payroll_enterprise_status').on(
       table.enterpriseId,
       table.status
@@ -212,6 +226,8 @@ export const payrollEmployees = pgTable(
         onDelete: 'cascade',
         onUpdate: 'cascade',
       }),
+
+    payoutCurrency: varchar('payout_currency', { length: 10 }).default('USDC'),
     grossSalary: decimal('gross_salary', { precision: 20, scale: 7 }).notNull(),
     netSalary: decimal('net_salary', { precision: 20, scale: 7 }).notNull(),
     taxWithheld: decimal('tax_withheld', { precision: 20, scale: 7 }).notNull(),
@@ -224,6 +240,14 @@ export const payrollEmployees = pgTable(
     bonuses: decimal('bonuses', { precision: 20, scale: 7 }).notNull().default('0'),
     commissions: decimal('commissions', { precision: 20, scale: 7 }).notNull().default('0'),
     reimbursements: decimal('reimbursements', { precision: 20, scale: 7 }).notNull().default('0'),
+
+    batchIndex: integer('batch_index'),
+    payeeIndex: integer('payee_index'),
+    salt: text('salt'),
+    commitment: text('commitment'),
+    merklePath: jsonb('merkle_path'),
+    pathIndices: jsonb('path_indices'),
+
     encryptedMetadata: text('encrypted_metadata'),
     txHash: varchar('tx_hash', { length: 64 }),
     status: payrollStatusEnum('status').default('pending'),
@@ -236,10 +260,64 @@ export const payrollEmployees = pgTable(
     employeeIdx: index('idx_payroll_employees_employee').on(table.employeeId),
     statusIdx: index('idx_payroll_employees_status').on(table.status),
     txIdx: index('idx_payroll_employees_tx').on(table.txHash),
+    payoutCurrencyIdx: index('idx_payroll_employees_payout_currency').on(table.payoutCurrency),
+    commitmentIdx: index('idx_payroll_employees_commitment').on(table.commitment),
+    batchPayeeIdx: index('idx_payroll_employees_batch_payee').on(
+      table.payrollRunId,
+      table.batchIndex,
+      table.payeeIndex
+    ),
     payrollEmployeeIdx: index('idx_payroll_employee_composite').on(
       table.payrollRunId,
       table.employeeId
     ),
+  })
+);
+
+export const payrollVerificationLinks = pgTable(
+  'payroll_verification_links',
+  {
+    id: serial('id').primaryKey(),
+    tokenHash: varchar('token_hash', { length: 64 }).unique().notNull(),
+    enterpriseId: integer('enterprise_id')
+      .notNull()
+      .references(() => enterprises.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    employeeId: integer('employee_id')
+      .notNull()
+      .references(() => employees.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    payrollRunId: integer('payroll_run_id')
+      .notNull()
+      .references(() => payrollRuns.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    payrollEmployeeId: integer('payroll_employee_id')
+      .notNull()
+      .references(() => payrollEmployees.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    tokenHashIdx: index('idx_payroll_verification_links_token_hash').on(table.tokenHash),
+    enterpriseIdx: index('idx_payroll_verification_links_enterprise').on(table.enterpriseId),
+    employeeIdx: index('idx_payroll_verification_links_employee').on(table.employeeId),
+    payrollRunIdx: index('idx_payroll_verification_links_payroll_run').on(table.payrollRunId),
+    payrollEmployeeIdx: index('idx_payroll_verification_links_payroll_employee').on(
+      table.payrollEmployeeId
+    ),
+    expiresIdx: index('idx_payroll_verification_links_expires').on(table.expiresAt),
   })
 );
 
@@ -420,6 +498,7 @@ export const transactionLogs = pgTable(
     txIdx: index('idx_transactions_tx').on(table.txHash),
     enterpriseIdx: index('idx_transactions_enterprise').on(table.enterpriseId),
     payrollIdx: index('idx_transactions_payroll').on(table.payrollRunId),
+    payrollEmployeeIdx: index('idx_transactions_payroll_employee').on(table.payrollEmployeeId),
     fromIdx: index('idx_transactions_from').on(table.fromAddress),
     toIdx: index('idx_transactions_to').on(table.toAddress),
     statusIdx: index('idx_transactions_status').on(table.status),
@@ -432,6 +511,7 @@ export const enterprisesRelations = relations(enterprises, ({ many }) => ({
   employees: many(employees),
   users: many(users),
   payrollRuns: many(payrollRuns),
+  payrollVerificationLinks: many(payrollVerificationLinks),
   auditLogs: many(auditLogs),
   auditKeys: many(auditKeys),
   transactionLogs: many(transactionLogs),
@@ -444,6 +524,7 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
     references: [enterprises.id],
   }),
   payrollEntries: many(payrollEmployees),
+  payrollVerificationLinks: many(payrollVerificationLinks),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -463,13 +544,14 @@ export const payrollRunsRelations = relations(payrollRuns, ({ one, many }) => ({
     references: [enterprises.id],
   }),
   employees: many(payrollEmployees),
+  payrollVerificationLinks: many(payrollVerificationLinks),
   auditLogs: many(auditLogs),
   auditKeys: many(auditKeys),
   zkProofs: many(zkProofs),
   transactionLogs: many(transactionLogs),
 }));
 
-export const payrollEmployeesRelations = relations(payrollEmployees, ({ one }) => ({
+export const payrollEmployeesRelations = relations(payrollEmployees, ({ one, many }) => ({
   payrollRun: one(payrollRuns, {
     fields: [payrollEmployees.payrollRunId],
     references: [payrollRuns.id],
@@ -477,6 +559,26 @@ export const payrollEmployeesRelations = relations(payrollEmployees, ({ one }) =
   employee: one(employees, {
     fields: [payrollEmployees.employeeId],
     references: [employees.id],
+  }),
+  payrollVerificationLinks: many(payrollVerificationLinks),
+}));
+
+export const payrollVerificationLinksRelations = relations(payrollVerificationLinks, ({ one }) => ({
+  enterprise: one(enterprises, {
+    fields: [payrollVerificationLinks.enterpriseId],
+    references: [enterprises.id],
+  }),
+  employee: one(employees, {
+    fields: [payrollVerificationLinks.employeeId],
+    references: [employees.id],
+  }),
+  payrollRun: one(payrollRuns, {
+    fields: [payrollVerificationLinks.payrollRunId],
+    references: [payrollRuns.id],
+  }),
+  payrollEmployee: one(payrollEmployees, {
+    fields: [payrollVerificationLinks.payrollEmployeeId],
+    references: [payrollEmployees.id],
   }),
 }));
 

@@ -11,9 +11,8 @@ import { QuickTips } from '@/components/dashboard/payroll/QuickTips';
 import { RecentRecipients } from '@/components/dashboard/payroll/RecentRecipients';
 import { API, ROUTES } from '@/config';
 import Cookies from 'js-cookie';
-import { Person } from '@/types/person';
+import { Person, mapApiRecordToPerson } from '@/types/person';
 import { PaymentFormData, BalanceData } from '@/types/payroll';
-import { mapApiRecordToPerson } from '@/types/person';
 
 interface ApiRecord {
   id: string | number;
@@ -25,9 +24,15 @@ interface ApiRecord {
   type?: string | null;
   title?: string | null;
   salary?: string | number | null;
+  preferredCurrency?: string | null;
   status?: string | null;
   verified?: boolean | null;
   createdAt?: string | null;
+}
+
+interface MockProofData {
+  proof: Uint8Array;
+  publicInputs: string[];
 }
 
 export default function SendPaymentPage() {
@@ -40,7 +45,6 @@ export default function SendPaymentPage() {
   const [hasManuallySelected, setHasManuallySelected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [zkProof, setZkProof] = useState<any>(null);
 
   const [formData, setFormData] = useState<PaymentFormData>({
     personId: '',
@@ -56,8 +60,10 @@ export default function SendPaymentPage() {
   const [success, setSuccess] = useState(false);
 
   let selectedPerson = manuallySelectedPerson;
+
   if (!hasManuallySelected && recipientId && people.length > 0) {
-    const urlPerson = people.find((p) => p.id === recipientId);
+    const urlPerson = people.find((person) => person.id === recipientId);
+
     if (urlPerson) {
       selectedPerson = urlPerson;
     }
@@ -84,8 +90,8 @@ export default function SendPaymentPage() {
       const data = await response.json();
       setBalance(data);
       setBalanceError(null);
-    } catch (err) {
-      console.error('Error fetching balance:', err);
+    } catch (fetchError) {
+      console.error('Error fetching balance:', fetchError);
       setBalanceError('Unable to load balance');
       setBalance(null);
     } finally {
@@ -95,34 +101,37 @@ export default function SendPaymentPage() {
 
   const fetchPeople = useCallback(async () => {
     const enterpriseId = Cookies.get('enterpriseId');
+
     if (!enterpriseId) {
       setLoading(false);
       return;
     }
 
     try {
-      const response = await fetch(API.employees.byEnterprise(parseInt(enterpriseId)));
+      const response = await fetch(API.employees.byEnterprise(parseInt(enterpriseId, 10)));
 
       if (!response.ok) {
         throw new Error('Failed to fetch people');
       }
 
       const data: ApiRecord[] = await response.json();
-      const mappedPeople = data.map((record: ApiRecord) => mapApiRecordToPerson(record));
+      const mappedPeople = data.map((record) => mapApiRecordToPerson(record));
       setPeople(mappedPeople);
 
       if (recipientId) {
-        const urlPerson = mappedPeople.find((p) => p.id === recipientId);
+        const urlPerson = mappedPeople.find((person) => person.id === recipientId);
+
         if (urlPerson) {
           setFormData((prev) => ({
             ...prev,
             personId: urlPerson.id,
             amount: urlPerson.salary ? urlPerson.salary.toString() : prev.amount,
+            currency: urlPerson.preferredCurrency || prev.currency,
           }));
         }
       }
-    } catch (err) {
-      console.error('Error fetching people:', err);
+    } catch (fetchError) {
+      console.error('Error fetching people:', fetchError);
       setError('Failed to load people');
     } finally {
       setLoading(false);
@@ -132,12 +141,13 @@ export default function SendPaymentPage() {
   useEffect(() => {
     let isMounted = true;
 
-    const loadInitialData = async () => {
+    async function loadInitialData() {
       if (!isMounted) return;
-      await Promise.all([fetchPeople(), fetchBalance()]);
-    };
 
-    loadInitialData();
+      await Promise.all([fetchPeople(), fetchBalance()]);
+    }
+
+    void loadInitialData();
 
     return () => {
       isMounted = false;
@@ -146,7 +156,8 @@ export default function SendPaymentPage() {
 
   const handlePersonSelect = (personId: string) => {
     setHasManuallySelected(true);
-    const person = people.find((p) => p.id === personId);
+
+    const person = people.find((candidate) => candidate.id === personId);
 
     if (person) {
       setManuallySelectedPerson(person);
@@ -154,36 +165,32 @@ export default function SendPaymentPage() {
         ...prev,
         personId: person.id,
         amount: person.salary ? person.salary.toString() : '',
+        currency: person.preferredCurrency || prev.currency,
       }));
       setError(null);
-      setZkProof(null);
     } else {
       setManuallySelectedPerson(null);
       setFormData((prev) => ({ ...prev, personId: '', amount: '' }));
-      setZkProof(null);
     }
   };
 
   const handleFormChange = (data: Partial<PaymentFormData>) => {
     setFormData((prev) => ({ ...prev, ...data }));
-    setZkProof(null);
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
   };
 
-  // ✅ SKIP ZK PROOF for now - use mock proof
-  const generateMockProof = async () => {
-    // Mock proof data that will pass the contract's verification
+  const generateMockProof = async (): Promise<MockProofData> => {
     return {
       proof: new Uint8Array([1, 2, 3, 4]),
       publicInputs: ['0x123', '0x456'],
     };
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError(null);
     setSubmitting(true);
 
@@ -192,7 +199,6 @@ export default function SendPaymentPage() {
         throw new Error('Recipient has no wallet address set');
       }
 
-      // ✅ Use mock proof for now
       const proofData = await generateMockProof();
 
       const response = await fetch(API.stellar.send, {
@@ -223,12 +229,11 @@ export default function SendPaymentPage() {
         setFormData((prev) => ({ ...prev, amount: '', memo: '' }));
         setManuallySelectedPerson(null);
         setHasManuallySelected(false);
-        setZkProof(null);
         router.push(ROUTES.employer.employees);
       }, 3000);
-    } catch (err) {
-      console.error('Payment error:', err);
-      setError(err instanceof Error ? err.message : 'Payment failed');
+    } catch (submitError) {
+      console.error('Payment error:', submitError);
+      setError(submitError instanceof Error ? submitError.message : 'Payment failed');
     } finally {
       setSubmitting(false);
     }
@@ -248,14 +253,18 @@ export default function SendPaymentPage() {
         <div className="rounded-full bg-emerald-50 p-4">
           <CheckCircle className="h-16 w-16 text-emerald-600" />
         </div>
+
         <h3 className="mt-4 text-2xl font-semibold text-slate-900">Payment Sent! 🎉</h3>
+
         <p className="mt-2 text-slate-500">
           {formData.amount} {formData.currency} sent to {selectedPerson?.name}
         </p>
+
         <div className="mt-6 flex gap-3">
           <Button variant="outline" onClick={() => router.push(ROUTES.employer.employees)}>
             Back to People
           </Button>
+
           <Button
             className="bg-emerald-600 hover:bg-emerald-700"
             onClick={() => router.push(ROUTES.employer.send)}
@@ -271,7 +280,7 @@ export default function SendPaymentPage() {
     <div className="space-y-6">
       <PageHeader
         title="Send Payment"
-        description="Pay employees, contractors, or freelancers securely"
+        description="Send a one off Stellar payment outside the ZK payroll batch flow"
         backLink={{ href: ROUTES.employer.employees, label: 'Back to People' }}
       >
         <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -307,7 +316,9 @@ export default function SendPaymentPage() {
             error={balanceError}
             onRefresh={fetchBalance}
           />
+
           <QuickTips />
+
           <RecentRecipients people={people} onSelect={handlePersonSelect} />
         </div>
       </div>

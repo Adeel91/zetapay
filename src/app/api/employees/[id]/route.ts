@@ -53,6 +53,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       type,
       title,
       salary,
+      preferredCurrency,
       taxFilingStatus,
       allowances,
       additionalWithholding,
@@ -79,6 +80,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         type: type || existing[0].type,
         title: title ?? existing[0].title,
         salary: salary ?? existing[0].salary,
+        preferredCurrency: preferredCurrency || existing[0].preferredCurrency,
         taxFilingStatus: taxFilingStatus || existing[0].taxFilingStatus,
         allowances:
           allowances !== undefined ? parseInt(String(allowances), 10) : existing[0].allowances,

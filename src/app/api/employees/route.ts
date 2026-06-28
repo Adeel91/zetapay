@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       .from(employees)
       .where(eq(employees.enterpriseId, parseInt(enterpriseId)))
       .execute();
-
+    console.error('SALARY');
     return NextResponse.json(records);
   } catch (error) {
     console.error('Error fetching employees:', error);
@@ -49,6 +49,8 @@ export async function POST(request: Request) {
       fullName,
       classification,
       title,
+      salary,
+      preferredCurrency,
       taxFilingStatus,
       allowances,
       additionalWithholding,
@@ -81,6 +83,8 @@ export async function POST(request: Request) {
         fullName: fullName.trim(),
         type: classification || 'employee',
         title: title || null,
+        salary: salary !== undefined ? String(salary) : '0',
+        preferredCurrency: preferredCurrency === 'XLM' ? 'XLM' : 'USDC',
         taxFilingStatus: taxFilingStatus || 'single',
         allowances: allowances ? parseInt(String(allowances), 10) : 0,
         additionalWithholding: additionalWithholding ? String(additionalWithholding) : '0',
@@ -93,6 +97,16 @@ export async function POST(request: Request) {
     return NextResponse.json(result[0], { status: 201 });
   } catch (error) {
     console.error('Error creating employee:', error);
-    return NextResponse.json({ error: 'Failed to create employee' }, { status: 500 });
+
+    const cause = error instanceof Error && 'cause' in error ? String(error.cause) : null;
+
+    return NextResponse.json(
+      {
+        error: 'Failed to create employee',
+        message: error instanceof Error ? error.message : String(error),
+        cause,
+      },
+      { status: 500 }
+    );
   }
 }

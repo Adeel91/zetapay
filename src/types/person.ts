@@ -1,5 +1,7 @@
 import { EMPLOYEE, FREELANCER, CONTRACTOR, VENDOR, CONSULTANT } from '@/config';
 
+export type PaymentCurrency = 'XLM' | 'USDC';
+
 export type PersonType =
   | typeof EMPLOYEE
   | typeof FREELANCER
@@ -15,6 +17,7 @@ export interface Person {
   type: PersonType;
   title?: string;
   salary?: number;
+  preferredCurrency: PaymentCurrency;
   verified: boolean;
   createdAt: string;
 }
@@ -100,6 +103,7 @@ export interface PersonFormData {
   type: PersonType;
   title: string;
   salary: number;
+  preferredCurrency: PaymentCurrency;
   taxFilingStatus: string;
   allowances: number;
   additionalWithholding: number;
@@ -121,6 +125,7 @@ export function getInitialPersonFormData(): PersonFormData {
     type: EMPLOYEE,
     title: '',
     salary: 0,
+    preferredCurrency: 'USDC',
     taxFilingStatus: 'single',
     allowances: 0,
     additionalWithholding: 0,
@@ -138,6 +143,7 @@ interface ApiRecord {
   type?: string | null;
   title?: string | null;
   salary?: string | number | null;
+  preferredCurrency?: string | null;
   status?: string | null;
   verified?: boolean | null;
   createdAt?: string | null;
@@ -145,6 +151,7 @@ interface ApiRecord {
 
 export function mapApiRecordToPerson(record: ApiRecord): Person {
   let salary = 0;
+
   if (record.salary !== null && record.salary !== undefined) {
     salary = typeof record.salary === 'string' ? parseFloat(record.salary) : record.salary;
   }
@@ -157,6 +164,7 @@ export function mapApiRecordToPerson(record: ApiRecord): Person {
     type: (record.type as PersonType) || EMPLOYEE,
     title: record.title || undefined,
     salary,
+    preferredCurrency: record.preferredCurrency === 'XLM' ? 'XLM' : 'USDC',
     verified: record.status === 'active' || record.verified || false,
     createdAt: record.createdAt || new Date().toISOString(),
   };
