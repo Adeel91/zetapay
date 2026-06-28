@@ -90,9 +90,9 @@ export default function EmployerDashboard() {
     },
     {
       icon: Send,
-      title: 'Send Payment',
+      title: 'Payroll',
       description: 'Pay employees, freelancers, or contractors',
-      href: ROUTES.employer.send,
+      href: ROUTES.employer.payroll,
     },
     {
       icon: FileText,

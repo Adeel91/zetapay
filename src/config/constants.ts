@@ -18,15 +18,17 @@ export const ROUTES = {
   },
   employer: {
     root: `${DASHBOARD}/${EMPLOYER}`,
-    send: `${DASHBOARD}/${EMPLOYER}/send`,
     employees: `${DASHBOARD}/${EMPLOYER}/employees`,
     addEmployee: `${DASHBOARD}/${EMPLOYER}/employees/add`,
     employeePayroll: (id: number) => `${DASHBOARD}/${EMPLOYER}/employees/${id}/payroll`,
     employeePayrollRun: (id: string, runId: number) =>
       `${DASHBOARD}/${EMPLOYER}/employees/${id}/payroll/${runId}`,
+    payroll: `${DASHBOARD}/${EMPLOYER}/payroll`,
+    payrollNew: `${DASHBOARD}/${EMPLOYER}/payroll/new`,
+    payrollReview: `${DASHBOARD}/${EMPLOYER}/payroll/review`,
+    payrollDetails: (id: string) => `${DASHBOARD}/${EMPLOYER}/payroll/${id}`,
     history: `${DASHBOARD}/${EMPLOYER}/history`,
     settings: `${DASHBOARD}/${EMPLOYER}/settings`,
-    payrollNew: `${DASHBOARD}/${EMPLOYER}/payroll/new`,
   },
   auditor: {
     root: `${DASHBOARD}/${AUDITOR}`,
@@ -46,6 +48,7 @@ export const API = {
   payroll: {
     root: '/api/payroll',
     execute: '/api/payroll/execute',
+    list: (enterpriseId: number | string) => `/api/payroll?enterpriseId=${enterpriseId}`,
   },
   employees: {
     root: '/api/employees',

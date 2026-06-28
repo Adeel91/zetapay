@@ -183,11 +183,15 @@ export const payrollRuns = pgTable(
 
     txHash: varchar('tx_hash', { length: 64 }).unique(),
     auditKey: varchar('audit_key', { length: 64 }).unique().notNull(),
-    auditKeySalt: varchar('audit_key_salt', { length: 64 }),
-    verificationTokenHash: varchar('verification_token_hash', { length: 64 }).unique(),
-    verificationTokenCreatedAt: timestamp('verification_token_created_at', {
+
+    publicVerificationTokenHash: varchar('public_verification_token_hash', {
+      length: 64,
+    }).unique(),
+    publicVerificationTokenCreatedAt: timestamp('public_verification_token_created_at', {
       withTimezone: true,
     }),
+
+    auditKeySalt: varchar('audit_key_salt', { length: 64 }),
     proofHash: varchar('proof_hash', { length: 64 }),
     proofPublicInputs: jsonb('proof_public_inputs'),
     status: payrollStatusEnum('status').default('draft'),
@@ -211,8 +215,8 @@ export const payrollRuns = pgTable(
       table.enterpriseId,
       table.status
     ),
-    verificationTokenHashIdx: index('idx_payroll_verification_token_hash').on(
-      table.verificationTokenHash
+    publicVerificationTokenHashIdx: index('idx_payroll_public_verification_token_hash').on(
+      table.publicVerificationTokenHash
     ),
   })
 );
@@ -259,6 +263,7 @@ export const payrollEmployees = pgTable(
     txHash: varchar('tx_hash', { length: 64 }),
     status: payrollStatusEnum('status').default('pending'),
     processedAt: timestamp('processed_at', { withTimezone: true }),
+    paymentVerifiedAt: timestamp('payment_verified_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -269,6 +274,9 @@ export const payrollEmployees = pgTable(
     txIdx: index('idx_payroll_employees_tx').on(table.txHash),
     payoutCurrencyIdx: index('idx_payroll_employees_payout_currency').on(table.payoutCurrency),
     commitmentIdx: index('idx_payroll_employees_commitment').on(table.commitment),
+    paymentVerifiedAtIdx: index('idx_payroll_employees_payment_verified_at').on(
+      table.paymentVerifiedAt
+    ),
     batchPayeeIdx: index('idx_payroll_employees_batch_payee').on(
       table.payrollRunId,
       table.batchIndex,
@@ -286,6 +294,7 @@ export const payrollVerificationLinks = pgTable(
   {
     id: serial('id').primaryKey(),
     tokenHash: varchar('token_hash', { length: 64 }).unique().notNull(),
+    linkType: varchar('link_type', { length: 20 }).default('employee').notNull(),
     enterpriseId: integer('enterprise_id')
       .notNull()
       .references(() => enterprises.id, {
@@ -318,6 +327,7 @@ export const payrollVerificationLinks = pgTable(
   },
   (table) => ({
     tokenHashIdx: index('idx_payroll_verification_links_token_hash').on(table.tokenHash),
+    linkTypeIdx: index('idx_payroll_verification_links_link_type').on(table.linkType),
     enterpriseIdx: index('idx_payroll_verification_links_enterprise').on(table.enterpriseId),
     employeeIdx: index('idx_payroll_verification_links_employee').on(table.employeeId),
     payrollRunIdx: index('idx_payroll_verification_links_payroll_run').on(table.payrollRunId),

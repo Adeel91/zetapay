@@ -112,7 +112,7 @@ export default function PayrollVerificationPage() {
             </p>
           </div>
 
-          <CardContent className="grid gap-4 p-6 md:grid-cols-4">
+          <CardContent className="mt-10 grid gap-4 p-6 md:grid-cols-4">
             <Metric label="Status" value={data.verified ? 'Verified record' : 'Incomplete'} />
             <Metric label="Payees" value={`${data.payrollRun.payeeCount}`} />
             <Metric label="Total XLM" value={`${data.payrollRun.totalXlm} XLM`} />

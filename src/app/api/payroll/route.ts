@@ -4,7 +4,13 @@ import crypto from 'crypto';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { employees, payrollEmployees, payrollRuns, zkProofs } from '@/lib/db/schema';
+import {
+  employees,
+  payrollEmployees,
+  payrollRuns,
+  payrollVerificationLinks,
+  zkProofs,
+} from '@/lib/db/schema';
 import {
   buildPayrollBatch,
   BATCH_SIZE,
@@ -18,8 +24,25 @@ type PayrollCreateRequest = {
   items: PayrollBatchInputItem[];
 };
 
+const EMPLOYEE_LINK_EXPIRY_DAYS = 30;
+
 function randomHex(bytes = 32) {
   return crypto.randomBytes(bytes).toString('hex');
+}
+
+function getBaseUrl(request: Request) {
+  const origin = request.headers.get('origin');
+
+  if (origin) return origin;
+
+  const host = request.headers.get('host');
+  const protocol = request.headers.get('x-forwarded-proto') || 'http';
+
+  return host ? `${protocol}://${host}` : '';
+}
+
+function getEmployeeLinkExpiry() {
+  return new Date(Date.now() + EMPLOYEE_LINK_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 }
 
 export async function GET(request: Request) {
@@ -100,9 +123,10 @@ export async function POST(request: Request) {
       );
     }
 
+    const baseUrl = getBaseUrl(request);
     const auditKey = randomHex(16);
-    const verificationToken = randomHex(32);
-    const verificationTokenHash = sha256Hex(verificationToken);
+    const publicVerificationToken = randomHex(32);
+    const publicVerificationTokenHash = sha256Hex(publicVerificationToken);
 
     const batch = buildPayrollBatch({
       enterpriseId,
@@ -134,8 +158,8 @@ export async function POST(request: Request) {
         batchRoot: batch.batchRoot,
         payrollRunHash: batch.payrollRunHash,
         auditKey,
-        verificationTokenHash,
-        verificationTokenCreatedAt: new Date(),
+        publicVerificationTokenHash,
+        publicVerificationTokenCreatedAt: new Date(),
         proofHash: batch.proofHash,
         proofPublicInputs: batch.proofPublicInputs,
         status: 'processing',
@@ -151,8 +175,16 @@ export async function POST(request: Request) {
       .returning()
       .execute();
 
+    const employeeVerificationLinks: {
+      employeeId: number;
+      payrollEmployeeId: number;
+      verificationUrl: string;
+      token: string;
+      expiresAt: string;
+    }[] = [];
+
     for (const row of batch.rows) {
-      await db
+      const [payrollEmployee] = await db
         .insert(payrollEmployees)
         .values({
           payrollRunId: payrollRun.id,
@@ -179,7 +211,33 @@ export async function POST(request: Request) {
           status: 'processing',
           processedAt: new Date(),
         })
+        .returning()
         .execute();
+
+      const employeeVerificationToken = randomHex(32);
+      const employeeVerificationTokenHash = sha256Hex(employeeVerificationToken);
+      const expiresAt = getEmployeeLinkExpiry();
+
+      await db
+        .insert(payrollVerificationLinks)
+        .values({
+          tokenHash: employeeVerificationTokenHash,
+          linkType: 'employee',
+          enterpriseId,
+          employeeId: row.employee.id,
+          payrollRunId: payrollRun.id,
+          payrollEmployeeId: payrollEmployee.id,
+          expiresAt,
+        })
+        .execute();
+
+      employeeVerificationLinks.push({
+        employeeId: row.employee.id,
+        payrollEmployeeId: payrollEmployee.id,
+        verificationUrl: `${baseUrl}/verify/payment/${employeeVerificationToken}`,
+        token: employeeVerificationToken,
+        expiresAt: expiresAt.toISOString(),
+      });
     }
 
     await db
@@ -203,8 +261,10 @@ export async function POST(request: Request) {
         batchRoot: batch.batchRoot,
         payrollRunHash: batch.payrollRunHash,
         proofHash: batch.proofHash,
-        verificationUrl: `/verify/payroll/${verificationToken}`,
-        verificationToken,
+        publicVerificationUrl: `${baseUrl}/verify/payroll/${publicVerificationToken}`,
+        publicVerificationToken,
+        employeeVerificationLinks,
+        employerPayrollUrl: `${baseUrl}/dashboard/employer/payroll/${payrollRun.id}`,
         totals: {
           xlm: batch.totals.totalXlm,
           usdc: batch.totals.totalUsdc,

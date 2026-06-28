@@ -62,3 +62,17 @@ export interface SignTransactionOptions {
   networkPassphrase?: string;
   accountToSign?: string;
 }
+
+export interface PayrollRun {
+  id: number;
+  periodStart: string;
+  periodEnd: string;
+  totalXlm: string;
+  totalUsdc: string;
+  payeeCount: number;
+  batchCount: number;
+  batchRoot: string | null;
+  proofHash: string | null;
+  status: string;
+  createdAt: string;
+}

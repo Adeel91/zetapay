@@ -14,14 +14,14 @@ import {
   X,
   Shield,
   Key,
-  Send,
+  WalletCards,
 } from 'lucide-react';
 import { AUDITOR, EMPLOYER, ROUTES } from '@/config';
 
 const employerNav = [
   { name: 'Dashboard', href: ROUTES.employer.root, icon: LayoutDashboard },
   { name: 'People', href: ROUTES.employer.employees, icon: Users },
-  { name: 'Send Payment', href: ROUTES.employer.send, icon: Send },
+  { name: 'Payroll', href: ROUTES.employer.payroll, icon: WalletCards },
   { name: 'History', href: ROUTES.employer.history, icon: History },
   { name: 'Settings', href: ROUTES.employer.settings, icon: Settings },
 ];
@@ -41,7 +41,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isAuditor = pathname?.startsWith(ROUTES.auditor.root);
 
   const navItems = isEmployer ? employerNav : isAuditor ? auditorNav : [];
-
   const role = isEmployer ? EMPLOYER : isAuditor ? AUDITOR : '';
 
   return (
@@ -66,7 +65,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex-1 overflow-y-auto px-3 py-4">
             <nav className="space-y-1">
               {navItems.map((item) => {
-                const isActive = pathname === item.href;
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== ROUTES.employer.root && pathname?.startsWith(item.href));
+
                 return (
                   <Link
                     key={item.name}
@@ -97,11 +99,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      <main
-        className={`min-h-screen transition-all duration-300 ${
-          sidebarOpen ? 'md:ml-64' : 'ml-0 md:ml-64'
-        }`}
-      >
+      <main className="min-h-screen transition-all duration-300 md:ml-64">
         <div className="p-6 md:p-8">{children}</div>
       </main>
     </div>

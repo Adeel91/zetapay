@@ -115,7 +115,32 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
   const renderNavLinks = () => {
     if (isAuthPage) return null;
 
-    if (isConnected) {
+    if (isConnected && userInfo) {
+      if (userInfo.type === EMPLOYER) {
+        return (
+          <>
+            <Link
+              href={ROUTES.employer.root}
+              className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
+            >
+              Dashboard
+            </Link>
+            <Link
+              href={ROUTES.employer.employees}
+              className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
+            >
+              Employees
+            </Link>
+            <Link
+              href={ROUTES.employer.payroll}
+              className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
+            >
+              Payroll
+            </Link>
+          </>
+        );
+      }
+
       return (
         <Link
           href={getDashboardHref()}
@@ -125,27 +150,6 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
         </Link>
       );
     }
-
-    return (
-      <>
-        {!isLanding && (
-          <Link
-            href="/"
-            className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
-          >
-            Home
-          </Link>
-        )}
-        {!isLanding && (
-          <Link
-            href={ROUTES.auth.auditorLogin}
-            className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
-          >
-            Auditor
-          </Link>
-        )}
-      </>
-    );
   };
 
   const renderLaunchButton = () => {

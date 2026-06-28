@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, ExternalLink, FileWarning } from 'lucide-react';
+import { FileWarning } from 'lucide-react';
 
 import { ROUTES } from '@/config';
 import { Button } from '@/components/ui/Button';
@@ -20,8 +20,15 @@ type GeneratedPayrollResult = {
   batchRoot: string;
   payrollRunHash: string;
   proofHash: string;
-  verificationUrl?: string;
-  verificationToken?: string;
+  publicVerificationUrl?: string;
+  publicVerificationToken?: string;
+  employerPayrollUrl?: string;
+  employeeVerificationLinks?: {
+    employeeId: number;
+    payrollEmployeeId: number;
+    verificationUrl: string;
+    token: string;
+  }[];
   totals: {
     xlm: number;
     usdc: number;
@@ -30,9 +37,12 @@ type GeneratedPayrollResult = {
   };
 };
 
-function readDraftFromSession(): PayrollReviewDraft | null {
-  if (typeof window === 'undefined') return null;
+type PayrollErrorResponse = {
+  error?: string;
+  message?: string;
+};
 
+function readDraftFromSession(): PayrollReviewDraft | null {
   const raw = window.sessionStorage.getItem('zetapayPayrollDraft');
 
   if (!raw) return null;
@@ -47,10 +57,17 @@ function readDraftFromSession(): PayrollReviewDraft | null {
 export default function PayrollReviewPage() {
   const router = useRouter();
 
-  const [draft] = useState<PayrollReviewDraft | null>(() => readDraftFromSession());
+  const [mounted, setMounted] = useState(false);
+  const [draft, setDraft] = useState<PayrollReviewDraft | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [generatedResult, setGeneratedResult] = useState<GeneratedPayrollResult | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setDraft(readDraftFromSession());
+      setMounted(true);
+    });
+  }, []);
 
   const validation = useMemo(() => {
     const items = draft?.items ?? [];
@@ -64,13 +81,10 @@ export default function PayrollReviewPage() {
   }, [draft]);
 
   const canGenerate =
-    validation.hasPayees &&
-    validation.allWalletsValid &&
-    validation.allAmountsValid &&
-    !generatedResult;
+    validation.hasPayees && validation.allWalletsValid && validation.allAmountsValid;
 
   async function handleGenerateProof() {
-    if (!draft || generatedResult) return;
+    if (!draft || generating) return;
 
     setGenerating(true);
     setGenerationError(null);
@@ -90,23 +104,29 @@ export default function PayrollReviewPage() {
         }),
       });
 
-      const result = await response.json();
+      const result = (await response.json()) as GeneratedPayrollResult & PayrollErrorResponse;
 
       if (!response.ok) {
         throw new Error(result.error || result.message || 'Failed to generate payroll');
       }
 
-      setGeneratedResult(result);
-      sessionStorage.setItem('zetapayGeneratedPayroll', JSON.stringify(result));
+      window.sessionStorage.setItem('zetapayGeneratedPayroll', JSON.stringify(result));
+      window.sessionStorage.removeItem('zetapayPayrollDraft');
 
-      if (result.verificationUrl) {
-        window.open(result.verificationUrl, '_blank');
-      }
+      router.push(ROUTES.employer.payrollDetails(String(result.payrollRunId)));
     } catch (error) {
       setGenerationError(error instanceof Error ? error.message : 'Failed to generate payroll');
     } finally {
       setGenerating(false);
     }
+  }
+
+  if (!mounted) {
+    return (
+      <div className="flex min-h-[420px] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+      </div>
+    );
   }
 
   if (!draft) {
@@ -125,7 +145,7 @@ export default function PayrollReviewPage() {
 
           <Button
             className="mt-6 bg-emerald-600 text-white hover:bg-emerald-700"
-            onClick={() => router.push(`${ROUTES.employer.root}/payroll/new`)}
+            onClick={() => router.push(ROUTES.employer.payrollNew)}
           >
             Create payroll run
           </Button>
@@ -139,7 +159,7 @@ export default function PayrollReviewPage() {
       <PageHeader
         title="Payroll Review"
         description="Confirm payroll details before generating the ZK payroll proof."
-        backLink={{ href: `${ROUTES.employer.root}/payroll/new`, label: 'Back to Builder' }}
+        backLink={{ href: ROUTES.employer.payrollNew, label: 'Back to Builder' }}
       />
 
       <PayrollReviewHeader draft={draft} />
@@ -150,35 +170,6 @@ export default function PayrollReviewPage() {
         </div>
       )}
 
-      {generatedResult && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" />
-              <div>
-                <p className="font-semibold text-emerald-900">
-                  Payroll #{generatedResult.payrollRunId} generated
-                </p>
-                <p className="mt-1 text-sm text-emerald-700">
-                  Commitments, Merkle root, proof placeholder, and verification token were saved.
-                </p>
-              </div>
-            </div>
-
-            {generatedResult.verificationUrl && (
-              <Button
-                variant="outline"
-                onClick={() => window.open(generatedResult.verificationUrl, '_blank')}
-                className="border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-100"
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Open verification
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
           <PayrollReviewTable items={draft.items} />
@@ -186,8 +177,8 @@ export default function PayrollReviewPage() {
           <PayrollReviewActions
             canGenerate={canGenerate}
             generating={generating}
-            generated={Boolean(generatedResult)}
-            onBack={() => router.push(`${ROUTES.employer.root}/payroll/new`)}
+            generated={false}
+            onBack={() => router.push(ROUTES.employer.payrollNew)}
             onGenerate={handleGenerateProof}
           />
         </div>

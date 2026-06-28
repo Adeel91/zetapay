@@ -105,6 +105,7 @@ CREATE TABLE "payroll_employees" (
 	"tx_hash" varchar(64),
 	"status" "payroll_status" DEFAULT 'pending',
 	"processed_at" timestamp with time zone,
+	"payment_verified_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -129,6 +130,8 @@ CREATE TABLE "payroll_runs" (
 	"contract_batch_id" integer,
 	"tx_hash" varchar(64),
 	"audit_key" varchar(64) NOT NULL,
+	"public_verification_token_hash" varchar(64),
+	"public_verification_token_created_at" timestamp with time zone,
 	"audit_key_salt" varchar(64),
 	"proof_hash" varchar(64),
 	"proof_public_inputs" jsonb,
@@ -140,7 +143,8 @@ CREATE TABLE "payroll_runs" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "payroll_runs_tx_hash_unique" UNIQUE("tx_hash"),
-	CONSTRAINT "payroll_runs_audit_key_unique" UNIQUE("audit_key")
+	CONSTRAINT "payroll_runs_audit_key_unique" UNIQUE("audit_key"),
+	CONSTRAINT "payroll_runs_public_verification_token_hash_unique" UNIQUE("public_verification_token_hash")
 );
 --> statement-breakpoint
 CREATE TABLE "payroll_settings" (
@@ -166,6 +170,7 @@ CREATE TABLE "payroll_settings" (
 CREATE TABLE "payroll_verification_links" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"token_hash" varchar(64) NOT NULL,
+	"link_type" varchar(20) DEFAULT 'employee' NOT NULL,
 	"enterprise_id" integer NOT NULL,
 	"employee_id" integer NOT NULL,
 	"payroll_run_id" integer NOT NULL,
@@ -283,6 +288,7 @@ CREATE INDEX "idx_payroll_employees_status" ON "payroll_employees" USING btree (
 CREATE INDEX "idx_payroll_employees_tx" ON "payroll_employees" USING btree ("tx_hash");--> statement-breakpoint
 CREATE INDEX "idx_payroll_employees_payout_currency" ON "payroll_employees" USING btree ("payout_currency");--> statement-breakpoint
 CREATE INDEX "idx_payroll_employees_commitment" ON "payroll_employees" USING btree ("commitment");--> statement-breakpoint
+CREATE INDEX "idx_payroll_employees_payment_verified_at" ON "payroll_employees" USING btree ("payment_verified_at");--> statement-breakpoint
 CREATE INDEX "idx_payroll_employees_batch_payee" ON "payroll_employees" USING btree ("payroll_run_id","batch_index","payee_index");--> statement-breakpoint
 CREATE INDEX "idx_payroll_employee_composite" ON "payroll_employees" USING btree ("payroll_run_id","employee_id");--> statement-breakpoint
 CREATE INDEX "idx_payroll_enterprise" ON "payroll_runs" USING btree ("enterprise_id");--> statement-breakpoint
@@ -294,8 +300,10 @@ CREATE INDEX "idx_payroll_audit_key" ON "payroll_runs" USING btree ("audit_key")
 CREATE INDEX "idx_payroll_batch_root" ON "payroll_runs" USING btree ("batch_root");--> statement-breakpoint
 CREATE INDEX "idx_payroll_run_hash" ON "payroll_runs" USING btree ("payroll_run_hash");--> statement-breakpoint
 CREATE INDEX "idx_payroll_enterprise_status" ON "payroll_runs" USING btree ("enterprise_id","status");--> statement-breakpoint
+CREATE INDEX "idx_payroll_public_verification_token_hash" ON "payroll_runs" USING btree ("public_verification_token_hash");--> statement-breakpoint
 CREATE INDEX "idx_settings_enterprise" ON "payroll_settings" USING btree ("enterprise_id");--> statement-breakpoint
 CREATE INDEX "idx_payroll_verification_links_token_hash" ON "payroll_verification_links" USING btree ("token_hash");--> statement-breakpoint
+CREATE INDEX "idx_payroll_verification_links_link_type" ON "payroll_verification_links" USING btree ("link_type");--> statement-breakpoint
 CREATE INDEX "idx_payroll_verification_links_enterprise" ON "payroll_verification_links" USING btree ("enterprise_id");--> statement-breakpoint
 CREATE INDEX "idx_payroll_verification_links_employee" ON "payroll_verification_links" USING btree ("employee_id");--> statement-breakpoint
 CREATE INDEX "idx_payroll_verification_links_payroll_run" ON "payroll_verification_links" USING btree ("payroll_run_id");--> statement-breakpoint
