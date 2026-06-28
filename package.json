@@ -19,8 +19,8 @@
     "circuits:compile": "circom circuits/payroll/circuits/payroll.circom --r1cs --wasm --sym -l node_modules -o circuits/payroll/build",
     "circuits:inputs": "node circuits/payroll/scripts/generate-inputs.js",
     "circuits:witness": "node circuits/payroll/build/payroll_js/generate_witness.js circuits/payroll/build/payroll_js/payroll.wasm circuits/payroll/inputs/xlm.json circuits/payroll/build/witness.wtns",
-    "circuits:ptau": "mkdir -p circuits/payroll/ptau && test -f circuits/payroll/ptau/powersOfTau28_hez_final_15.ptau || curl -L -o circuits/payroll/ptau/powersOfTau28_hez_final_15.ptau https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_15.ptau",
-    "circuits:setup": "yarn circuits:ptau && npx snarkjs groth16 setup circuits/payroll/build/payroll.r1cs circuits/payroll/ptau/powersOfTau28_hez_final_15.ptau circuits/payroll/build/payroll_0000.zkey && npx snarkjs zkey contribute circuits/payroll/build/payroll_0000.zkey circuits/payroll/build/payroll_final.zkey --name='ZetaPay local contribution' -v -e='zetapay payroll groth16 local entropy' && npx snarkjs zkey export verificationkey circuits/payroll/build/payroll_final.zkey circuits/payroll/build/verification_key.json",
+    "circuits:ptau": "mkdir -p circuits/payroll/ptau && test -f circuits/payroll/ptau/powersOfTau28_hez_final_19.ptau || curl -L -o circuits/payroll/ptau/powersOfTau28_hez_final_19.ptau https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_19.ptau",
+    "circuits:setup": "yarn circuits:ptau && npx snarkjs groth16 setup circuits/payroll/build/payroll.r1cs circuits/payroll/ptau/powersOfTau28_hez_final_19.ptau circuits/payroll/build/payroll_0000.zkey && npx snarkjs zkey contribute circuits/payroll/build/payroll_0000.zkey circuits/payroll/build/payroll_final.zkey --name='ZetaPay local contribution' -v -e='zetapay payroll groth16 local entropy' && npx snarkjs zkey export verificationkey circuits/payroll/build/payroll_final.zkey circuits/payroll/build/verification_key.json",
     "circuits:prove": "npx snarkjs groth16 prove circuits/payroll/build/payroll_final.zkey circuits/payroll/build/witness.wtns circuits/payroll/build/proof.json circuits/payroll/build/public.json",
     "circuits:verify": "npx snarkjs groth16 verify circuits/payroll/build/verification_key.json circuits/payroll/build/public.json circuits/payroll/build/proof.json",
     "circuits:fixtures": "node circuits/payroll/scripts/export-fixtures.js",
@@ -29,7 +29,9 @@
     "contracts:clean": "cd contracts && cargo clean",
     "contracts:zk-verifier:test": "cd contracts && cargo test -p zk-verifier -- --nocapture",
     "contracts:zk-payroll:test": "cd contracts && cargo test -p zk-payroll -- --nocapture",
-    "contracts:zk-payroll:check": "cd contracts && cargo check -p zk-payroll"
+    "contracts:zk-payroll:check": "cd contracts && cargo check -p zk-payroll",
+    "contracts:test": "yarn contracts:zk-verifier:test && yarn contracts:zk-payroll:test",
+    "zk:test": "yarn circuits:rebuild && yarn contracts:test"
   },
   "dependencies": {
     "@stellar/freighter-api": "^6.0.1",

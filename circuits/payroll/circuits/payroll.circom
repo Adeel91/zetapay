@@ -46,41 +46,72 @@ template PayrollCommitment() {
     commitment <== poseidon.out;
 }
 
-template Merkle8() {
-    signal input leaves[8];
+template Merkle128() {
+    signal input leaves[128];
     signal output root;
 
-    component h01 = Poseidon(2);
-    component h23 = Poseidon(2);
-    component h45 = Poseidon(2);
-    component h67 = Poseidon(2);
+    component level1[64];
+    component level2[32];
+    component level3[16];
+    component level4[8];
+    component level5[4];
+    component level6[2];
+    component level7[1];
 
-    h01.inputs[0] <== leaves[0];
-    h01.inputs[1] <== leaves[1];
+    signal l1[64];
+    signal l2[32];
+    signal l3[16];
+    signal l4[8];
+    signal l5[4];
+    signal l6[2];
 
-    h23.inputs[0] <== leaves[2];
-    h23.inputs[1] <== leaves[3];
+    for (var i = 0; i < 64; i++) {
+        level1[i] = Poseidon(2);
+        level1[i].inputs[0] <== leaves[i * 2];
+        level1[i].inputs[1] <== leaves[i * 2 + 1];
+        l1[i] <== level1[i].out;
+    }
 
-    h45.inputs[0] <== leaves[4];
-    h45.inputs[1] <== leaves[5];
+    for (var i = 0; i < 32; i++) {
+        level2[i] = Poseidon(2);
+        level2[i].inputs[0] <== l1[i * 2];
+        level2[i].inputs[1] <== l1[i * 2 + 1];
+        l2[i] <== level2[i].out;
+    }
 
-    h67.inputs[0] <== leaves[6];
-    h67.inputs[1] <== leaves[7];
+    for (var i = 0; i < 16; i++) {
+        level3[i] = Poseidon(2);
+        level3[i].inputs[0] <== l2[i * 2];
+        level3[i].inputs[1] <== l2[i * 2 + 1];
+        l3[i] <== level3[i].out;
+    }
 
-    component h0123 = Poseidon(2);
-    component h4567 = Poseidon(2);
+    for (var i = 0; i < 8; i++) {
+        level4[i] = Poseidon(2);
+        level4[i].inputs[0] <== l3[i * 2];
+        level4[i].inputs[1] <== l3[i * 2 + 1];
+        l4[i] <== level4[i].out;
+    }
 
-    h0123.inputs[0] <== h01.out;
-    h0123.inputs[1] <== h23.out;
+    for (var i = 0; i < 4; i++) {
+        level5[i] = Poseidon(2);
+        level5[i].inputs[0] <== l4[i * 2];
+        level5[i].inputs[1] <== l4[i * 2 + 1];
+        l5[i] <== level5[i].out;
+    }
 
-    h4567.inputs[0] <== h45.out;
-    h4567.inputs[1] <== h67.out;
+    for (var i = 0; i < 2; i++) {
+        level6[i] = Poseidon(2);
+        level6[i].inputs[0] <== l5[i * 2];
+        level6[i].inputs[1] <== l5[i * 2 + 1];
+        l6[i] <== level6[i].out;
+    }
 
-    component hroot = Poseidon(2);
-    hroot.inputs[0] <== h0123.out;
-    hroot.inputs[1] <== h4567.out;
+    level7[0] = Poseidon(2);
+    level7[0].inputs[0] <== l6[0];
+    level7[0].inputs[1] <== l6[1];
 
-    root <== hroot.out;
+    root <== level7[0].out;
 }
 
 template PayrollBatch(maxPayees) {
@@ -281,9 +312,9 @@ template PayrollBatch(maxPayees) {
         running_contributor_count[i + 1] <== running_contributor_count[i] + is_paid[i] * is_contributor[i].out;
     }
 
-    component merkle = Merkle8();
+    component merkle = Merkle128();
 
-    for (var j = 0; j < 8; j++) {
+    for (var j = 0; j < 128; j++) {
         merkle.leaves[j] <== commitments[j];
     }
 
@@ -316,7 +347,6 @@ template PayrollBatch(maxPayees) {
 }
 
 component main { public [
-    commitments,
     batch_root_public,
     total_amount,
     total_xlm,
@@ -338,4 +368,4 @@ component main { public [
     batch_index_public,
     batch_count_public,
     payee_count_total
-] } = PayrollBatch(8);
+] } = PayrollBatch(128);

@@ -72,7 +72,7 @@ fn make_public_inputs(env: &Env) -> Vec<Bn254Fr> {
 }
 
 fn make_commitment_root(env: &Env) -> Bn254Fr {
-    Bn254Fr::from_bytes(BytesN::from_array(env, &REAL_SIGNALS[8]))
+    Bn254Fr::from_bytes(BytesN::from_array(env, &REAL_SIGNALS[0]))
 }
 
 fn make_payments(env: &Env) -> Vec<PayrollPayment> {

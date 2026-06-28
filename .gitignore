@@ -30,7 +30,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
 !.env.example
 
@@ -52,11 +52,6 @@ next-env.d.ts
 
 # stellar
 /.stellar/
-
-# noir
-/circuits/target/
-/circuits/proofs/
-/circuits/verifier/
 
 # rust
 /contracts/target/
@@ -85,4 +80,33 @@ temp/
 # build artifacts
 dist/
 .storybook-out/
-.vercel/
+
+# -------------------------------------------------------
+# Zero Knowledge Circuits
+# -------------------------------------------------------
+
+# Old Noir artifacts
+/circuits/target/
+/circuits/proofs/
+/circuits/verifier/
+
+# Powers of Tau
+/circuits/payroll/ptau/
+
+# Generated circuit build artifacts
+/circuits/payroll/build/payroll_js/
+/circuits/payroll/build/witness.wtns
+/circuits/payroll/build/payroll.r1cs
+/circuits/payroll/build/payroll.sym
+/circuits/payroll/build/payroll_0000.zkey
+/circuits/payroll/build/payroll_final.zkey
+/circuits/payroll/build/*.json
+
+# Keep these generated files
+!/circuits/payroll/build/proof.json
+!/circuits/payroll/build/public.json
+!/circuits/payroll/build/verification_key.json
+
+# Rust fixtures are committed intentionally
+!/contracts/zk-payroll/src/fixtures.rs
+!/contracts/zk-verifier/src/fixtures.rs
