@@ -131,6 +131,7 @@ CREATE TABLE "payroll_runs" (
 	"tx_hash" varchar(64),
 	"audit_key" varchar(64) NOT NULL,
 	"public_verification_token_hash" varchar(64),
+	"public_verification_token" varchar(64),
 	"public_verification_token_created_at" timestamp with time zone,
 	"audit_key_salt" varchar(64),
 	"proof_hash" varchar(64),
@@ -170,6 +171,7 @@ CREATE TABLE "payroll_settings" (
 CREATE TABLE "payroll_verification_links" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"token_hash" varchar(64) NOT NULL,
+	"token" varchar(64),
 	"link_type" varchar(20) DEFAULT 'employee' NOT NULL,
 	"enterprise_id" integer NOT NULL,
 	"employee_id" integer NOT NULL,

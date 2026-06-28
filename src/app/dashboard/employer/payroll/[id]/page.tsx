@@ -2,10 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { CalendarDays, CheckCircle2, Copy, FileWarning, ShieldCheck, Users } from 'lucide-react';
+import {
+  CalendarDays,
+  CheckCircle2,
+  Copy,
+  ExternalLink,
+  FileWarning,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Button } from '@/components/ui/Button';
 import { ROUTES } from '@/config';
 
 type PayrollEmployeeRecord = {
@@ -22,8 +31,9 @@ type PayrollEmployeeRecord = {
   payeeIndex: number | null;
   salt: string | null;
   commitment: string | null;
-  merklePath: string[] | null;
-  pathIndices: number[] | null;
+  merklePath: unknown;
+  pathIndices: unknown;
+  paymentVerifiedAt: string | null;
   employee?: {
     id: number;
     fullName: string;
@@ -32,6 +42,14 @@ type PayrollEmployeeRecord = {
     type: string | null;
     title: string | null;
   };
+  employeeVerificationLink: {
+    id: number;
+    linkType: string;
+    expiresAt: string;
+    usedAt: string | null;
+    revokedAt: string | null;
+    verificationUrl: string | null;
+  } | null;
 };
 
 type PayrollRunDetail = {
@@ -50,6 +68,7 @@ type PayrollRunDetail = {
   batchRoot: string | null;
   payrollRunHash: string | null;
   proofHash: string | null;
+  publicVerificationUrl: string | null;
   status: string | null;
   createdAt: string;
   employees: PayrollEmployeeRecord[];
@@ -59,34 +78,60 @@ export default function EmployerPayrollDetailPage() {
   const params = useParams<{ id: string }>();
 
   const [data, setData] = useState<PayrollRunDetail | null>(null);
+  const [generatedResult, setGeneratedResult] = useState<{
+    payrollRunId: number;
+    publicVerificationUrl?: string;
+    employeeVerificationLinks?: {
+      employeeId: number;
+      payrollEmployeeId: number;
+      verificationUrl: string;
+      token: string;
+      expiresAt: string;
+    }[];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function copy(text?: string | null) {
+  async function copy(text?: string | null, label = 'value') {
     if (!text) return;
     await navigator.clipboard.writeText(text);
+    setCopied(label);
+    setTimeout(() => setCopied(null), 1600);
   }
 
   useEffect(() => {
-    async function loadPayrollRun() {
-      try {
-        const response = await fetch(`/api/payroll/${params.id}`);
+    queueMicrotask(() => {
+      const rawGenerated = window.sessionStorage.getItem('zetapayGeneratedPayroll');
 
-        if (!response.ok) {
-          const body = await response.json();
-          throw new Error(body.error || 'Failed to load payroll run');
+      if (rawGenerated) {
+        try {
+          const parsed = JSON.parse(rawGenerated);
+          setGeneratedResult(parsed);
+        } catch {
+          setGeneratedResult(null);
         }
-
-        const body = (await response.json()) as PayrollRunDetail;
-        setData(body);
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : 'Failed to load payroll run');
-      } finally {
-        setLoading(false);
       }
-    }
 
-    void loadPayrollRun();
+      async function loadPayrollRun() {
+        try {
+          const response = await fetch(`/api/payroll/${params.id}`);
+          const body = await response.json();
+
+          if (!response.ok) {
+            throw new Error(body.error || 'Failed to load payroll run');
+          }
+
+          setData(body);
+        } catch (loadError) {
+          setError(loadError instanceof Error ? loadError.message : 'Failed to load payroll run');
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      void loadPayrollRun();
+    });
   }, [params.id]);
 
   if (loading) {
@@ -110,12 +155,14 @@ export default function EmployerPayrollDetailPage() {
   }
 
   const verified = Boolean(data.batchRoot && data.proofHash);
+  const publicVerificationUrl =
+    generatedResult?.payrollRunId === data.id ? generatedResult.publicVerificationUrl : null;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={`Payroll #${data.id}`}
-        description="Employer payroll report with payees, commitments, proof metadata, and status."
+        description="Private employer payroll report with proof data, payees, and verification links."
         backLink={{ href: ROUTES.employer.payroll, label: 'Back to Payroll' }}
       />
 
@@ -123,23 +170,56 @@ export default function EmployerPayrollDetailPage() {
         <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 px-6 py-8 text-white">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm text-emerald-50">
             <ShieldCheck className="h-4 w-4" />
-            Private employer payroll report
+            Private employer report
           </div>
 
           <h1 className="mt-4 text-3xl font-bold">Payroll proof record</h1>
 
           <p className="mt-2 max-w-2xl text-sm text-emerald-50/80">
-            This dashboard view is private to the employer and can show full payroll details.
+            This dashboard view can show full payroll details because it is only for the employer.
           </p>
         </div>
 
-        <CardContent className="mt-10 grid gap-4 p-6 md:grid-cols-4">
+        <CardContent className="grid gap-4 p-6 md:grid-cols-4">
           <Metric label="Status" value={verified ? 'Proof material saved' : 'Incomplete'} />
           <Metric label="Payees" value={`${data.payeeCount || data.employees.length}`} />
           <Metric label="Total XLM" value={`${data.totalXlm || '0'} XLM`} />
           <Metric label="Total USDC" value={`${data.totalUsdc || '0'} USDC`} />
         </CardContent>
       </Card>
+
+      {publicVerificationUrl && (
+        <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Public auditor proof link</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  This public link shows totals and proof metadata only. It does not expose payees.
+                </p>
+                <p className="mt-3 rounded-2xl bg-slate-50 p-3 font-mono text-xs break-all text-slate-700">
+                  {publicVerificationUrl}
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => copy(publicVerificationUrl, 'public')}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  {copied === 'public' ? 'Copied' : 'Copy'}
+                </Button>
+
+                <Button
+                  className="bg-emerald-600 text-white hover:bg-emerald-700"
+                  onClick={() => window.open(publicVerificationUrl, '_blank')}
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Open
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
@@ -189,37 +269,70 @@ export default function EmployerPayrollDetailPage() {
           </div>
 
           <div className="mt-5 divide-y divide-slate-100">
-            {data.employees.map((payee) => (
-              <div
-                key={payee.id}
-                className="grid gap-4 py-4 lg:grid-cols-[1fr_160px_120px_120px] lg:items-center"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-slate-900">
-                    {payee.employee?.fullName || `Employee #${payee.employeeId}`}
+            {data.employees.map((payee) => {
+              const generatedLink = generatedResult?.employeeVerificationLinks?.find(
+                (link) => link.payrollEmployeeId === payee.id
+              );
+
+              return (
+                <div
+                  key={payee.id}
+                  className="grid gap-4 py-5 lg:grid-cols-[1fr_160px_120px_220px] lg:items-center"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-900">
+                      {payee.employee?.fullName || `Employee #${payee.employeeId}`}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {payee.employee?.email || 'No email'}
+                    </p>
+                    <p className="mt-1 truncate font-mono text-xs text-slate-400">
+                      {payee.employee?.walletAddress || 'No wallet'}
+                    </p>
+                    <p className="mt-1 truncate font-mono text-xs text-slate-400">
+                      Commitment: {payee.commitment || 'Not generated'}
+                    </p>
+                  </div>
+
+                  <p className="text-sm font-semibold text-slate-900">
+                    {payee.netSalary} {payee.payoutCurrency || 'USDC'}
                   </p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {payee.employee?.email || 'No email'}
-                  </p>
-                  <p className="mt-1 truncate font-mono text-xs text-slate-400">
-                    {payee.employee?.walletAddress || 'No wallet'}
-                  </p>
-                  <p className="mt-1 truncate font-mono text-xs text-slate-400">
-                    Commitment: {payee.commitment || 'Not generated'}
-                  </p>
+
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-center text-xs font-medium text-emerald-700">
+                    {payee.status}
+                  </span>
+
+                  <div className="space-y-2">
+                    {generatedLink ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() =>
+                            copy(generatedLink.verificationUrl, `employee-${payee.id}`)
+                          }
+                        >
+                          <Copy className="mr-2 h-4 w-4" />
+                          {copied === `employee-${payee.id}` ? 'Copied' : 'Copy link'}
+                        </Button>
+
+                        <Button
+                          className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
+                          onClick={() => window.open(generatedLink.verificationUrl, '_blank')}
+                        >
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          Open
+                        </Button>
+                      </>
+                    ) : (
+                      <p className="text-xs text-slate-400">
+                        Link token hidden. Regenerate or send link from creation result.
+                      </p>
+                    )}
+                  </div>
                 </div>
-
-                <p className="text-sm font-semibold text-slate-900">
-                  {payee.netSalary} {payee.payoutCurrency || 'USDC'}
-                </p>
-
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-center text-xs font-medium text-emerald-700">
-                  {payee.status}
-                </span>
-
-                <span className="text-sm text-slate-500">Index {payee.payeeIndex ?? 0}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -243,7 +356,7 @@ function HashRow({
 }: {
   label: string;
   value?: string | null;
-  onCopy: (value?: string | null) => void;
+  onCopy: (value?: string | null, label?: string) => void;
 }) {
   return (
     <div>
@@ -252,7 +365,7 @@ function HashRow({
         {value && (
           <button
             type="button"
-            onClick={() => onCopy(value)}
+            onClick={() => onCopy(value, label)}
             className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700"
           >
             <Copy className="h-3 w-3" />

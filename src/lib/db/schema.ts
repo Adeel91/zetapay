@@ -187,6 +187,7 @@ export const payrollRuns = pgTable(
     publicVerificationTokenHash: varchar('public_verification_token_hash', {
       length: 64,
     }).unique(),
+    publicVerificationToken: varchar('public_verification_token', { length: 64 }),
     publicVerificationTokenCreatedAt: timestamp('public_verification_token_created_at', {
       withTimezone: true,
     }),
@@ -294,6 +295,7 @@ export const payrollVerificationLinks = pgTable(
   {
     id: serial('id').primaryKey(),
     tokenHash: varchar('token_hash', { length: 64 }).unique().notNull(),
+    token: varchar('token', { length: 64 }),
     linkType: varchar('link_type', { length: 20 }).default('employee').notNull(),
     enterpriseId: integer('enterprise_id')
       .notNull()

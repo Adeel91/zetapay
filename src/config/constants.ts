@@ -62,7 +62,6 @@ export const API = {
     reports: '/api/audit/reports',
   },
   stellar: {
-    send: '/api/stellar/send',
     balance: '/api/stellar/balance',
   },
   zk: {

@@ -159,6 +159,7 @@ export async function POST(request: Request) {
         payrollRunHash: batch.payrollRunHash,
         auditKey,
         publicVerificationTokenHash,
+        publicVerificationToken,
         publicVerificationTokenCreatedAt: new Date(),
         proofHash: batch.proofHash,
         proofPublicInputs: batch.proofPublicInputs,
@@ -222,6 +223,7 @@ export async function POST(request: Request) {
         .insert(payrollVerificationLinks)
         .values({
           tokenHash: employeeVerificationTokenHash,
+          token: employeeVerificationToken,
           linkType: 'employee',
           enterpriseId,
           employeeId: row.employee.id,
