@@ -1,9 +1,26 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import crypto from 'crypto';
+import { and, desc, eq, inArray } from 'drizzle-orm';
+
 import { db } from '@/lib/db';
-import { payrollRuns, payrollEmployees, employees } from '@/lib/db/schema';
-import { eq, inArray, desc } from 'drizzle-orm';
-import { randomUUID } from 'crypto';
+import { employees, payrollEmployees, payrollRuns, zkProofs } from '@/lib/db/schema';
+import {
+  buildPayrollBatch,
+  BATCH_SIZE,
+  PayrollBatchInputItem,
+  sha256Hex,
+} from '@/lib/zk/payroll-batch';
+
+type PayrollCreateRequest = {
+  periodStart: string;
+  periodEnd: string;
+  items: PayrollBatchInputItem[];
+};
+
+function randomHex(bytes = 32) {
+  return crypto.randomBytes(bytes).toString('hex');
+}
 
 export async function GET(request: Request) {
   try {
@@ -17,14 +34,14 @@ export async function GET(request: Request) {
     const cookieStore = await cookies();
     const sessionEnterpriseId = cookieStore.get('enterpriseId')?.value;
 
-    if (!sessionEnterpriseId || parseInt(sessionEnterpriseId) !== parseInt(enterpriseId)) {
+    if (!sessionEnterpriseId || parseInt(sessionEnterpriseId, 10) !== parseInt(enterpriseId, 10)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const records = await db
       .select()
       .from(payrollRuns)
-      .where(eq(payrollRuns.enterpriseId, parseInt(enterpriseId)))
+      .where(eq(payrollRuns.enterpriseId, parseInt(enterpriseId, 10)))
       .orderBy(desc(payrollRuns.createdAt))
       .execute();
 
@@ -44,112 +61,168 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { employeeIds, periodStart, periodEnd } = body;
+    const enterpriseId = parseInt(enterpriseIdStr, 10);
+    const body = (await request.json()) as PayrollCreateRequest;
 
-    if (!employeeIds || employeeIds.length === 0) {
-      return NextResponse.json({ error: 'At least one employee is required' }, { status: 400 });
+    if (!body.periodStart || !body.periodEnd) {
+      return NextResponse.json({ error: 'Payroll period is required' }, { status: 400 });
     }
 
-    const enterpriseId = parseInt(enterpriseIdStr);
+    if (!Array.isArray(body.items) || body.items.length === 0) {
+      return NextResponse.json({ error: 'At least one payee is required' }, { status: 400 });
+    }
 
-    const employeeRecords = await db
+    if (body.items.length > BATCH_SIZE) {
+      return NextResponse.json(
+        {
+          error: `This demo endpoint currently supports ${BATCH_SIZE} payees. Multi batch generation comes next.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const employeeIds = body.items.map((item) => parseInt(item.personId, 10));
+
+    if (employeeIds.some((id) => Number.isNaN(id))) {
+      return NextResponse.json({ error: 'Invalid payee id' }, { status: 400 });
+    }
+
+    const employeeRows = await db
       .select()
       .from(employees)
-      .where(
-        inArray(
-          employees.id,
-          employeeIds.map((id: string) => parseInt(id))
-        )
-      )
+      .where(and(inArray(employees.id, employeeIds), eq(employees.enterpriseId, enterpriseId)))
       .execute();
 
-    let totalGross = 0;
-    let totalNet = 0;
-    let totalTax = 0;
+    if (employeeRows.length !== employeeIds.length) {
+      return NextResponse.json(
+        { error: 'One or more payees do not belong to this enterprise' },
+        { status: 400 }
+      );
+    }
 
-    const payrollEntries = employeeRecords.map((emp) => {
-      let gross = 0;
-      if (emp.salary !== null && emp.salary !== undefined) {
-        gross = typeof emp.salary === 'string' ? parseFloat(emp.salary) : Number(emp.salary);
-      }
+    const auditKey = randomHex(16);
+    const verificationToken = randomHex(32);
+    const verificationTokenHash = sha256Hex(verificationToken);
 
-      const tax = gross * 0.2;
-      const net = gross - tax;
-
-      totalGross += gross;
-      totalNet += net;
-      totalTax += tax;
-
-      return {
-        employeeId: emp.id,
-        grossSalary: gross,
-        netSalary: net,
-        taxWithheld: tax,
-        federalTax: tax * 0.5,
-        stateTax: tax * 0.3,
-        localTax: tax * 0.1,
-        socialSecurity: gross * 0.062,
-        medicare: gross * 0.0145,
-        deductions: 0,
-        bonuses: 0,
-        commissions: 0,
-        reimbursements: 0,
-        status: 'pending' as const,
-      };
+    const batch = buildPayrollBatch({
+      enterpriseId,
+      periodStart: body.periodStart,
+      periodEnd: body.periodEnd,
+      auditKey,
+      items: body.items,
+      employees: employeeRows.map((employee) => ({
+        id: employee.id,
+        walletAddress: employee.walletAddress,
+      })),
     });
 
-    const auditKey = randomUUID().replace(/-/g, '').slice(0, 32);
-
-    const result = await db
+    const [payrollRun] = await db
       .insert(payrollRuns)
       .values({
         enterpriseId,
-        periodStart: new Date(periodStart),
-        periodEnd: new Date(periodEnd),
-        totalGross: totalGross.toString(),
-        totalNet: totalNet.toString(),
-        totalTaxWithheld: totalTax.toString(),
+        periodStart: new Date(body.periodStart),
+        periodEnd: new Date(body.periodEnd),
+        totalGross: batch.totals.totalGross.toString(),
+        totalNet: batch.totals.totalGross.toString(),
+        totalTaxWithheld: '0',
         totalDeductions: '0',
+        totalXlm: batch.totals.totalXlm.toString(),
+        totalUsdc: batch.totals.totalUsdc.toString(),
+        payeeCount: batch.rows.length,
+        batchSize: batch.batchSize,
+        batchCount: batch.batchCount,
+        batchRoot: batch.batchRoot,
+        payrollRunHash: batch.payrollRunHash,
         auditKey,
-        status: 'completed',
+        verificationTokenHash,
+        verificationTokenCreatedAt: new Date(),
+        proofHash: batch.proofHash,
+        proofPublicInputs: batch.proofPublicInputs,
+        status: 'processing',
         processedBy: 'system',
         processedAt: new Date(),
-        txHash: `0x${randomUUID().replace(/-/g, '')}`,
         runDate: new Date(),
+        metadata: {
+          generatedBy: 'payroll-review',
+          proofMode: 'db-merkle-placeholder',
+          note: 'Groth16 proof generation will replace this placeholder next.',
+        },
       })
       .returning()
       .execute();
 
-    const payrollRun = result[0];
-
-    for (const entry of payrollEntries) {
+    for (const row of batch.rows) {
       await db
         .insert(payrollEmployees)
         .values({
           payrollRunId: payrollRun.id,
-          employeeId: entry.employeeId,
-          grossSalary: entry.grossSalary.toString(),
-          netSalary: entry.netSalary.toString(),
-          taxWithheld: entry.taxWithheld.toString(),
-          federalTax: entry.federalTax.toString(),
-          stateTax: entry.stateTax.toString(),
-          localTax: entry.localTax.toString(),
-          socialSecurity: entry.socialSecurity.toString(),
-          medicare: entry.medicare.toString(),
-          deductions: entry.deductions.toString(),
-          bonuses: entry.bonuses.toString(),
-          commissions: entry.commissions.toString(),
-          reimbursements: entry.reimbursements.toString(),
-          status: 'pending',
+          employeeId: row.employee.id,
+          payoutCurrency: row.item.currency,
+          grossSalary: row.item.amount,
+          netSalary: row.item.amount,
+          taxWithheld: '0',
+          federalTax: '0',
+          stateTax: '0',
+          localTax: '0',
+          socialSecurity: '0',
+          medicare: '0',
+          deductions: '0',
+          bonuses: '0',
+          commissions: '0',
+          reimbursements: '0',
+          batchIndex: 0,
+          payeeIndex: row.index,
+          salt: row.salt,
+          commitment: row.commitment,
+          merklePath: row.merklePath,
+          pathIndices: row.pathIndices,
+          status: 'processing',
           processedAt: new Date(),
         })
         .execute();
     }
 
-    return NextResponse.json(payrollRun, { status: 201 });
+    await db
+      .insert(zkProofs)
+      .values({
+        payrollRunId: payrollRun.id,
+        proofHash: batch.proofHash,
+        proofData: Buffer.from(JSON.stringify(batch.proofData)).toString('base64'),
+        publicInputs: batch.proofPublicInputs,
+        verifyingKeyHash: null,
+        isValid: false,
+        generatedAt: new Date(),
+      })
+      .execute();
+
+    return NextResponse.json(
+      {
+        success: true,
+        payrollRunId: payrollRun.id,
+        status: payrollRun.status,
+        batchRoot: batch.batchRoot,
+        payrollRunHash: batch.payrollRunHash,
+        proofHash: batch.proofHash,
+        verificationUrl: `/verify/payroll/${verificationToken}`,
+        verificationToken,
+        totals: {
+          xlm: batch.totals.totalXlm,
+          usdc: batch.totals.totalUsdc,
+          payeeCount: batch.rows.length,
+          batchCount: batch.batchCount,
+        },
+      },
+      { status: 201 }
+    );
   } catch (error) {
-    console.error('Error creating payroll:', error);
-    return NextResponse.json({ error: 'Failed to create payroll' }, { status: 500 });
+    console.error('Error creating ZK payroll:', error);
+
+    return NextResponse.json(
+      {
+        error: 'Failed to create ZK payroll',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }

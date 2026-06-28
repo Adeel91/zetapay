@@ -184,6 +184,10 @@ export const payrollRuns = pgTable(
     txHash: varchar('tx_hash', { length: 64 }).unique(),
     auditKey: varchar('audit_key', { length: 64 }).unique().notNull(),
     auditKeySalt: varchar('audit_key_salt', { length: 64 }),
+    verificationTokenHash: varchar('verification_token_hash', { length: 64 }).unique(),
+    verificationTokenCreatedAt: timestamp('verification_token_created_at', {
+      withTimezone: true,
+    }),
     proofHash: varchar('proof_hash', { length: 64 }),
     proofPublicInputs: jsonb('proof_public_inputs'),
     status: payrollStatusEnum('status').default('draft'),
@@ -206,6 +210,9 @@ export const payrollRuns = pgTable(
     enterpriseStatusIdx: index('idx_payroll_enterprise_status').on(
       table.enterpriseId,
       table.status
+    ),
+    verificationTokenHashIdx: index('idx_payroll_verification_token_hash').on(
+      table.verificationTokenHash
     ),
   })
 );
