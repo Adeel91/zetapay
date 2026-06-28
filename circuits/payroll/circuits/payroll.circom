@@ -46,6 +46,43 @@ template PayrollCommitment() {
     commitment <== poseidon.out;
 }
 
+template Merkle8() {
+    signal input leaves[8];
+    signal output root;
+
+    component h01 = Poseidon(2);
+    component h23 = Poseidon(2);
+    component h45 = Poseidon(2);
+    component h67 = Poseidon(2);
+
+    h01.inputs[0] <== leaves[0];
+    h01.inputs[1] <== leaves[1];
+
+    h23.inputs[0] <== leaves[2];
+    h23.inputs[1] <== leaves[3];
+
+    h45.inputs[0] <== leaves[4];
+    h45.inputs[1] <== leaves[5];
+
+    h67.inputs[0] <== leaves[6];
+    h67.inputs[1] <== leaves[7];
+
+    component h0123 = Poseidon(2);
+    component h4567 = Poseidon(2);
+
+    h0123.inputs[0] <== h01.out;
+    h0123.inputs[1] <== h23.out;
+
+    h4567.inputs[0] <== h45.out;
+    h4567.inputs[1] <== h67.out;
+
+    component hroot = Poseidon(2);
+    hroot.inputs[0] <== h0123.out;
+    hroot.inputs[1] <== h4567.out;
+
+    root <== hroot.out;
+}
+
 template PayrollBatch(maxPayees) {
     signal input payee_ids[maxPayees];
     signal input recipient_hashes[maxPayees];
@@ -60,6 +97,7 @@ template PayrollBatch(maxPayees) {
     signal input batch_count;
 
     signal input commitments[maxPayees];
+    signal input batch_root_public;
 
     signal input total_amount;
     signal input total_xlm;
@@ -243,6 +281,14 @@ template PayrollBatch(maxPayees) {
         running_contributor_count[i + 1] <== running_contributor_count[i] + is_paid[i] * is_contributor[i].out;
     }
 
+    component merkle = Merkle8();
+
+    for (var j = 0; j < 8; j++) {
+        merkle.leaves[j] <== commitments[j];
+    }
+
+    merkle.root === batch_root_public;
+
     running_total[maxPayees] === total_amount;
     running_total_xlm[maxPayees] === total_xlm;
     running_total_usdc[maxPayees] === total_usdc;
@@ -271,6 +317,7 @@ template PayrollBatch(maxPayees) {
 
 component main { public [
     commitments,
+    batch_root_public,
     total_amount,
     total_xlm,
     total_usdc,
@@ -291,4 +338,4 @@ component main { public [
     batch_index_public,
     batch_count_public,
     payee_count_total
-] } = PayrollBatch(10);
+] } = PayrollBatch(8);

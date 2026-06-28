@@ -71,6 +71,10 @@ fn make_public_inputs(env: &Env) -> Vec<Bn254Fr> {
     inputs
 }
 
+fn make_commitment_root(env: &Env) -> Bn254Fr {
+    Bn254Fr::from_bytes(BytesN::from_array(env, &REAL_SIGNALS[8]))
+}
+
 fn make_payments(env: &Env) -> Vec<PayrollPayment> {
     let mut payments = Vec::new(env);
 
@@ -131,13 +135,7 @@ fn submit_batch_verifies_real_groth16_proof_and_stores_record() {
 
     let vk = make_vk(&env);
 
-    let init = payroll.try_initialize(
-        &employer,
-        &verifier,
-        &xlm_token,
-        &usdc_token,
-        &vk,
-    );
+    let init = payroll.try_initialize(&employer, &verifier, &xlm_token, &usdc_token, &vk);
 
     assert!(init.is_ok());
     assert!(init.unwrap().is_ok());
@@ -147,7 +145,7 @@ fn submit_batch_verifies_real_groth16_proof_and_stores_record() {
     let public_inputs = make_public_inputs(&env);
 
     let payroll_run_hash = BytesN::from_array(&env, &[7u8; 32]);
-    let commitment_root = BytesN::from_array(&env, &[9u8; 32]);
+    let commitment_root = make_commitment_root(&env);
 
     let submit = payroll.try_submit_batch(
         &payments,
@@ -199,13 +197,7 @@ fn execute_batch_transfers_xlm_and_usdc_once() {
 
     let vk = make_vk(&env);
 
-    let init = payroll.try_initialize(
-        &employer,
-        &verifier,
-        &xlm_token,
-        &usdc_token,
-        &vk,
-    );
+    let init = payroll.try_initialize(&employer, &verifier, &xlm_token, &usdc_token, &vk);
 
     assert!(init.is_ok());
     assert!(init.unwrap().is_ok());
@@ -218,7 +210,7 @@ fn execute_batch_transfers_xlm_and_usdc_once() {
     let first_usdc_recipient = payments.get(1).unwrap().recipient;
 
     let payroll_run_hash = BytesN::from_array(&env, &[7u8; 32]);
-    let commitment_root = BytesN::from_array(&env, &[9u8; 32]);
+    let commitment_root = make_commitment_root(&env);
 
     let submit = payroll.try_submit_batch(
         &payments,
@@ -273,13 +265,7 @@ fn submit_batch_rejects_duplicate_proof() {
 
     let vk = make_vk(&env);
 
-    let init = payroll.try_initialize(
-        &employer,
-        &verifier,
-        &xlm_token,
-        &usdc_token,
-        &vk,
-    );
+    let init = payroll.try_initialize(&employer, &verifier, &xlm_token, &usdc_token, &vk);
 
     assert!(init.is_ok());
     assert!(init.unwrap().is_ok());
@@ -289,7 +275,7 @@ fn submit_batch_rejects_duplicate_proof() {
     let public_inputs = make_public_inputs(&env);
 
     let payroll_run_hash = BytesN::from_array(&env, &[7u8; 32]);
-    let commitment_root = BytesN::from_array(&env, &[9u8; 32]);
+    let commitment_root = make_commitment_root(&env);
 
     let first_submit = payroll.try_submit_batch(
         &payments,
@@ -336,13 +322,7 @@ fn submit_batch_rejects_payment_totals_that_do_not_match_proof() {
 
     let vk = make_vk(&env);
 
-    let init = payroll.try_initialize(
-        &employer,
-        &verifier,
-        &xlm_token,
-        &usdc_token,
-        &vk,
-    );
+    let init = payroll.try_initialize(&employer, &verifier, &xlm_token, &usdc_token, &vk);
 
     assert!(init.is_ok());
     assert!(init.unwrap().is_ok());
@@ -357,7 +337,7 @@ fn submit_batch_rejects_payment_totals_that_do_not_match_proof() {
     let public_inputs = make_public_inputs(&env);
 
     let payroll_run_hash = BytesN::from_array(&env, &[7u8; 32]);
-    let commitment_root = BytesN::from_array(&env, &[9u8; 32]);
+    let commitment_root = make_commitment_root(&env);
 
     let submit = payroll.try_submit_batch(
         &payments,
@@ -389,13 +369,7 @@ fn execute_batch_rejects_unknown_batch() {
 
     let vk = make_vk(&env);
 
-    let init = payroll.try_initialize(
-        &employer,
-        &verifier,
-        &xlm_token,
-        &usdc_token,
-        &vk,
-    );
+    let init = payroll.try_initialize(&employer, &verifier, &xlm_token, &usdc_token, &vk);
 
     assert!(init.is_ok());
     assert!(init.unwrap().is_ok());
@@ -425,13 +399,7 @@ fn payroll_run_summary_tracks_submission_and_execution() {
 
     let vk = make_vk(&env);
 
-    let init = payroll.try_initialize(
-        &employer,
-        &verifier,
-        &xlm_token,
-        &usdc_token,
-        &vk,
-    );
+    let init = payroll.try_initialize(&employer, &verifier, &xlm_token, &usdc_token, &vk);
 
     assert!(init.is_ok());
     assert!(init.unwrap().is_ok());
@@ -441,7 +409,7 @@ fn payroll_run_summary_tracks_submission_and_execution() {
     let public_inputs = make_public_inputs(&env);
 
     let payroll_run_hash = BytesN::from_array(&env, &[7u8; 32]);
-    let commitment_root = BytesN::from_array(&env, &[9u8; 32]);
+    let commitment_root = make_commitment_root(&env);
 
     let submit = payroll.try_submit_batch(
         &payments,
@@ -459,9 +427,7 @@ fn payroll_run_summary_tracks_submission_and_execution() {
 
     let batch_id = submit.unwrap().unwrap();
 
-    let summary_after_submit = payroll
-        .get_payroll_run_summary(&payroll_run_hash)
-        .unwrap();
+    let summary_after_submit = payroll.get_payroll_run_summary(&payroll_run_hash).unwrap();
 
     assert_eq!(summary_after_submit.submitted_batches, 1);
     assert_eq!(summary_after_submit.executed_batches, 0);
@@ -475,12 +441,53 @@ fn payroll_run_summary_tracks_submission_and_execution() {
     assert!(execute.is_ok());
     assert!(execute.unwrap().is_ok());
 
-    let summary_after_execute = payroll
-        .get_payroll_run_summary(&payroll_run_hash)
-        .unwrap();
+    let summary_after_execute = payroll.get_payroll_run_summary(&payroll_run_hash).unwrap();
 
     assert_eq!(summary_after_execute.submitted_batches, 1);
     assert_eq!(summary_after_execute.executed_batches, 1);
     assert!(summary_after_execute.is_complete);
     assert!(summary_after_execute.is_fully_executed);
+}
+
+#[test]
+fn submit_batch_rejects_wrong_commitment_root() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let employer = Address::generate(&env);
+    let verifier = deploy_verifier(&env);
+    let payroll = deploy_payroll(&env);
+
+    let xlm_token = token_contract(&env, &employer);
+    let usdc_token = token_contract(&env, &employer);
+
+    let vk = make_vk(&env);
+
+    let init = payroll.try_initialize(&employer, &verifier, &xlm_token, &usdc_token, &vk);
+
+    assert!(init.is_ok());
+    assert!(init.unwrap().is_ok());
+
+    let payments = make_payments(&env);
+    let proof = make_proof(&env);
+    let public_inputs = make_public_inputs(&env);
+
+    let payroll_run_hash = BytesN::from_array(&env, &[7u8; 32]);
+
+    let wrong_commitment_root = Bn254Fr::from_bytes(BytesN::from_array(&env, &[1u8; 32]));
+
+    let submit = payroll.try_submit_batch(
+        &payments,
+        &proof,
+        &public_inputs,
+        &payroll_run_hash,
+        &987654321u64,
+        &202601u64,
+        &0u32,
+        &1u32,
+        &wrong_commitment_root,
+    );
+
+    assert!(submit.is_err());
+    assert_eq!(payroll.get_batch_count(), 0);
 }

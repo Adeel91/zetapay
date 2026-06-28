@@ -51,7 +51,7 @@ impl ZkPayroll {
         period_id: u64,
         batch_index: u32,
         batch_count: u32,
-        commitment_root: BytesN<32>,
+        commitment_root: Bn254Fr,
     ) -> Result<u64, PayrollError> {
         let employer = Storage::get_employer(&env)?;
         employer.require_auth();
@@ -93,6 +93,10 @@ impl ZkPayroll {
             || totals.batch_count != batch_count
         {
             return Err(PayrollError::InvalidTotals);
+        }
+
+        if totals.batch_root != commitment_root {
+            return Err(PayrollError::InvalidCommitment);
         }
 
         let batch_id = Storage::get_batch_counter(&env) + 1;
@@ -204,26 +208,27 @@ impl ZkPayroll {
 
     fn parse_public_totals(public_inputs: &Vec<Bn254Fr>) -> Result<PublicTotals, PayrollError> {
         Ok(PublicTotals {
-            total_amount: Self::parse_i128(public_inputs, 10)?,
-            total_xlm: Self::parse_i128(public_inputs, 11)?,
-            total_usdc: Self::parse_i128(public_inputs, 12)?,
-            employee_total: Self::parse_i128(public_inputs, 13)?,
-            contractor_total: Self::parse_i128(public_inputs, 14)?,
-            freelancer_total: Self::parse_i128(public_inputs, 15)?,
-            vendor_total: Self::parse_i128(public_inputs, 16)?,
-            consultant_total: Self::parse_i128(public_inputs, 17)?,
-            contributor_total: Self::parse_i128(public_inputs, 18)?,
-            employee_count: Self::parse_u32(public_inputs, 19)?,
-            contractor_count: Self::parse_u32(public_inputs, 20)?,
-            freelancer_count: Self::parse_u32(public_inputs, 21)?,
-            vendor_count: Self::parse_u32(public_inputs, 22)?,
-            consultant_count: Self::parse_u32(public_inputs, 23)?,
-            contributor_count: Self::parse_u32(public_inputs, 24)?,
-            period_id: Self::parse_u64(public_inputs, 25)?,
-            _payroll_run_hash: Self::parse_u64(public_inputs, 26)?,
-            batch_index: Self::parse_u32(public_inputs, 27)?,
-            batch_count: Self::parse_u32(public_inputs, 28)?,
-            payee_count_total: Self::parse_u32(public_inputs, 29)?,
+            batch_root: Self::parse_fr(public_inputs, 8)?,
+            total_amount: Self::parse_i128(public_inputs, 9)?,
+            total_xlm: Self::parse_i128(public_inputs, 10)?,
+            total_usdc: Self::parse_i128(public_inputs, 11)?,
+            employee_total: Self::parse_i128(public_inputs, 12)?,
+            contractor_total: Self::parse_i128(public_inputs, 13)?,
+            freelancer_total: Self::parse_i128(public_inputs, 14)?,
+            vendor_total: Self::parse_i128(public_inputs, 15)?,
+            consultant_total: Self::parse_i128(public_inputs, 16)?,
+            contributor_total: Self::parse_i128(public_inputs, 17)?,
+            employee_count: Self::parse_u32(public_inputs, 18)?,
+            contractor_count: Self::parse_u32(public_inputs, 19)?,
+            freelancer_count: Self::parse_u32(public_inputs, 20)?,
+            vendor_count: Self::parse_u32(public_inputs, 21)?,
+            consultant_count: Self::parse_u32(public_inputs, 22)?,
+            contributor_count: Self::parse_u32(public_inputs, 23)?,
+            period_id: Self::parse_u64(public_inputs, 24)?,
+            _payroll_run_hash: Self::parse_u64(public_inputs, 25)?,
+            batch_index: Self::parse_u32(public_inputs, 26)?,
+            batch_count: Self::parse_u32(public_inputs, 27)?,
+            payee_count_total: Self::parse_u32(public_inputs, 28)?,
         })
     }
 
@@ -355,6 +360,10 @@ impl ZkPayroll {
         Ok(())
     }
 
+    fn parse_fr(inputs: &Vec<Bn254Fr>, idx: u32) -> Result<Bn254Fr, PayrollError> {
+        inputs.get(idx).ok_or(PayrollError::InvalidTotals)
+    }
+
     fn parse_i128(inputs: &Vec<Bn254Fr>, idx: u32) -> Result<i128, PayrollError> {
         let value = inputs
             .get(idx)
@@ -390,6 +399,7 @@ impl ZkPayroll {
 }
 
 struct PublicTotals {
+    batch_root: Bn254Fr,
     total_amount: i128,
     total_xlm: i128,
     total_usdc: i128,

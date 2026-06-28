@@ -1,5 +1,6 @@
 use soroban_sdk::{
     contracttype,
+    crypto::bn254::Bn254Fr,
     Address,
     BytesN,
     Vec,
@@ -41,7 +42,7 @@ pub struct PayrollBatch {
     pub batch_index: u32,
     pub batch_count: u32,
     pub proof_hash: BytesN<32>,
-    pub commitment_root: BytesN<32>,
+    pub commitment_root: Bn254Fr,
     pub payment_count: u32,
     pub total_amount: i128,
     pub total_xlm: i128,
