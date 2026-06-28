@@ -11,12 +11,8 @@ import {
   payrollVerificationLinks,
   zkProofs,
 } from '@/lib/db/schema';
-import {
-  buildPayrollBatch,
-  BATCH_SIZE,
-  PayrollBatchInputItem,
-  sha256Hex,
-} from '@/lib/zk/payroll-batch';
+import { buildPayrollBatch, BATCH_SIZE, PayrollBatchInputItem } from '@/lib/zk/payroll-batch';
+import { encryptPayload, generateToken, hashToken } from '@/lib/security/tokenVault';
 
 type PayrollCreateRequest = {
   periodStart: string;
@@ -125,8 +121,14 @@ export async function POST(request: Request) {
 
     const baseUrl = getBaseUrl(request);
     const auditKey = randomHex(16);
-    const publicVerificationToken = randomHex(32);
-    const publicVerificationTokenHash = sha256Hex(publicVerificationToken);
+
+    const publicVerificationToken = generateToken();
+    const publicVerificationTokenHash = hashToken(publicVerificationToken);
+    const publicVerificationPayload = encryptPayload({
+      token: publicVerificationToken,
+      enterpriseId,
+      createdAt: new Date().toISOString(),
+    });
 
     const batch = buildPayrollBatch({
       enterpriseId,
@@ -159,7 +161,7 @@ export async function POST(request: Request) {
         payrollRunHash: batch.payrollRunHash,
         auditKey,
         publicVerificationTokenHash,
-        publicVerificationToken,
+        publicVerificationPayload,
         publicVerificationTokenCreatedAt: new Date(),
         proofHash: batch.proofHash,
         proofPublicInputs: batch.proofPublicInputs,
@@ -215,15 +217,23 @@ export async function POST(request: Request) {
         .returning()
         .execute();
 
-      const employeeVerificationToken = randomHex(32);
-      const employeeVerificationTokenHash = sha256Hex(employeeVerificationToken);
+      const employeeVerificationToken = generateToken();
+      const employeeVerificationTokenHash = hashToken(employeeVerificationToken);
       const expiresAt = getEmployeeLinkExpiry();
+
+      const encryptedPayload = encryptPayload({
+        token: employeeVerificationToken,
+        employeeId: row.employee.id,
+        payrollRunId: payrollRun.id,
+        payrollEmployeeId: payrollEmployee.id,
+        createdAt: new Date().toISOString(),
+      });
 
       await db
         .insert(payrollVerificationLinks)
         .values({
           tokenHash: employeeVerificationTokenHash,
-          token: employeeVerificationToken,
+          encryptedPayload,
           linkType: 'employee',
           enterpriseId,
           employeeId: row.employee.id,

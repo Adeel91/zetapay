@@ -10,8 +10,13 @@ import {
   payrollVerificationLinks,
   zkProofs,
 } from '@/lib/db/schema';
+import { decryptPayload } from '@/lib/security/tokenVault';
 
 type EmployeeSelect = typeof employees.$inferSelect;
+
+type TokenPayload = {
+  token: string;
+};
 
 function getBaseUrl(request: Request) {
   const origin = request.headers.get('origin');
@@ -22,6 +27,16 @@ function getBaseUrl(request: Request) {
   const protocol = request.headers.get('x-forwarded-proto') || 'http';
 
   return host ? `${protocol}://${host}` : '';
+}
+
+function decryptTokenUrlPayload(encryptedPayload?: string | null) {
+  if (!encryptedPayload) return null;
+
+  try {
+    return decryptPayload<TokenPayload>(encryptedPayload);
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -86,16 +101,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .execute();
 
     const baseUrl = getBaseUrl(request);
+    const publicPayload = decryptTokenUrlPayload(payrollRun.publicVerificationPayload);
 
     return NextResponse.json({
       ...payrollRun,
-      publicVerificationUrl: payrollRun.publicVerificationToken
-        ? `${baseUrl}/verify/payroll/${payrollRun.publicVerificationToken}`
+      publicVerificationUrl: publicPayload?.token
+        ? `${baseUrl}/verify/payroll/${publicPayload.token}`
         : null,
       proof: proofRows[0] || null,
       employees: payrollEmployeeRows.map((payee) => {
         const employee = employeeDetails.find((item) => item.id === payee.employeeId);
         const verificationLink = linkRows.find((link) => link.payrollEmployeeId === payee.id);
+        const employeePayload = decryptTokenUrlPayload(verificationLink?.encryptedPayload);
 
         return {
           ...payee,
@@ -107,8 +124,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                 expiresAt: verificationLink.expiresAt,
                 usedAt: verificationLink.usedAt,
                 revokedAt: verificationLink.revokedAt,
-                verificationUrl: verificationLink.token
-                  ? `${baseUrl}/verify/payment/${verificationLink.token}`
+                verificationUrl: employeePayload?.token
+                  ? `${baseUrl}/verify/payment/${employeePayload.token}`
                   : null,
               }
             : null,
