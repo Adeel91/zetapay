@@ -131,7 +131,7 @@ export default function EmployeePaymentVerificationPage() {
             </p>
           </div>
 
-          <CardContent className="mt-5 grid gap-4 p-6 md:grid-cols-3">
+          <CardContent className="grid gap-4 p-6 md:grid-cols-3">
             <Metric label="Employee" value={payment.employeeName} />
             <Metric label="Company" value={payment.companyName} />
             <Metric label="Status" value={data.verified ? 'Verified' : 'Incomplete'} />

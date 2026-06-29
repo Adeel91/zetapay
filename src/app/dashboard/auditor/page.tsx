@@ -1,123 +1,202 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Key, Shield, FileText, History, ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import { StatsCard } from '@/components/ui/StatsCard';
-import { PageHeader } from '@/components/ui/PageHeader';
+import { ArrowRight, FileText, History, Key, ShieldCheck } from 'lucide-react';
+
 import { ROUTES } from '@/config';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatsCard } from '@/components/ui/StatsCard';
 
-const STATS = [
-  { label: 'Total Audits', value: '24' },
-  { label: 'Pending Verification', value: '3' },
-  { label: 'Verified', value: '21' },
-  { label: 'Compliance Rate', value: '100%' },
-];
+type AuditReportSummary = {
+  payrollRunId: number;
+  companyName?: string | null;
+  payeeCount?: number;
+  status?: string | null;
+  verifiedAt?: string;
+};
 
-const QUICK_ACTIONS = [
-  {
-    icon: Key,
-    title: 'Verify Payroll',
-    description: 'Enter audit key to decrypt',
-    href: ROUTES.auditor.verify,
-  },
-  {
-    icon: FileText,
-    title: 'Generate Report',
-    description: 'Export compliance report',
-    href: ROUTES.auditor.reports,
-  },
-  {
-    icon: History,
-    title: 'Audit History',
-    description: 'View past audits',
-    href: ROUTES.auditor.history,
-  },
-];
+function readReportsFromSession(): AuditReportSummary[] {
+  if (typeof window === 'undefined') return [];
 
-const RECENT_AUDITS = [
-  { id: 'AUD-2026-001', payroll: 'PAY-2026-001', status: 'Verified', time: '2 hours ago' },
-  { id: 'AUD-2026-002', payroll: 'PAY-2026-002', status: 'Pending', time: '5 hours ago' },
-  { id: 'AUD-2026-003', payroll: 'PAY-2026-003', status: 'Verified', time: '1 day ago' },
-];
+  const raw = window.sessionStorage.getItem('zetapayAuditReports');
+  if (!raw) return [];
 
-export default function AuditorDashboard() {
-  const [isLoading, setIsLoading] = useState(false);
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
-  const handleVerify = () => {
-    setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 1500);
-  };
+export default function AuditorDashboardPage() {
+  const [reports, setReports] = useState<AuditReportSummary[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setReports(readReportsFromSession());
+      setMounted(true);
+    });
+  }, []);
+
+  const stats = useMemo(() => {
+    const totalPayees = reports.reduce((sum, report) => sum + Number(report.payeeCount || 0), 0);
+
+    return [
+      { label: 'Total Audits', value: String(reports.length) },
+      { label: 'Verified Reports', value: String(reports.length) },
+      { label: 'Payees Reviewed', value: String(totalPayees) },
+      { label: 'Compliance Rate', value: reports.length > 0 ? '100%' : '0%' },
+    ];
+  }, [reports]);
+
+  if (!mounted) {
+    return (
+      <div className="flex min-h-[420px] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Auditor Portal"
-        description="Verify payroll data with zero-knowledge proofs"
+        description="Verify permissioned payroll reports with audit keys and proof metadata."
         action={
-          <Button onClick={handleVerify} loading={isLoading} icon={<Shield className="h-4 w-4" />}>
-            Quick Verify
-          </Button>
+          <Link href={ROUTES.auditor.verify}>
+            <Button className="bg-emerald-600 text-white hover:bg-emerald-700">
+              <Key className="mr-2 h-4 w-4" />
+              Verify Audit Key
+            </Button>
+          </Link>
         }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {STATS.map((stat, i) => (
-          <StatsCard key={i} label={stat.label} value={stat.value} />
+        {stats.map((stat) => (
+          <StatsCard key={stat.label} label={stat.label} value={stat.value} />
         ))}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        {QUICK_ACTIONS.map((action, i) => (
-          <Link key={i} href={action.href}>
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-indigo-500 hover:shadow-lg">
-              <div className="rounded-lg bg-indigo-50 p-2">
-                <action.icon className="h-5 w-5 text-indigo-600" />
-              </div>
-              <div className="text-left">
-                <p className="font-semibold text-slate-900">{action.title}</p>
-                <p className="text-xs text-slate-500">{action.description}</p>
-              </div>
-            </div>
-          </Link>
-        ))}
+        <QuickAction
+          icon={<Key className="h-5 w-5 text-emerald-600" />}
+          title="Verify Payroll"
+          description="Enter an audit key"
+          href={ROUTES.auditor.verify}
+        />
+        <QuickAction
+          icon={<FileText className="h-5 w-5 text-emerald-600" />}
+          title="Reports"
+          description="Review unlocked reports"
+          href={ROUTES.auditor.reports}
+        />
+        <QuickAction
+          icon={<History className="h-5 w-5 text-emerald-600" />}
+          title="Audit History"
+          description="View audit activity"
+          href={ROUTES.auditor.history}
+        />
       </div>
 
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-semibold text-slate-900">Recent Activity</h3>
-          <Link href={ROUTES.auditor.history} className="text-sm text-indigo-600 hover:underline">
-            View All
-          </Link>
-        </div>
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <div className="divide-y divide-slate-200">
-            {RECENT_AUDITS.map((item, i) => (
-              <div key={i} className="flex items-center justify-between px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-slate-900">{item.payroll}</p>
-                  <p className="text-xs text-slate-500">{item.time}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      item.status === 'Verified'
-                        ? 'bg-emerald-50 text-emerald-600'
-                        : 'bg-yellow-50 text-yellow-600'
-                    }`}
-                  >
-                    {item.status}
-                  </span>
-                  <Link href={`${ROUTES.auditor.verify}?id=${item.id}`}>
-                    <ArrowRight className="h-4 w-4 text-slate-400 hover:text-indigo-600" />
-                  </Link>
-                </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
+          <CardContent className="p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-slate-900">Recent Activity</h3>
+                <p className="mt-1 text-sm text-slate-500">Reports unlocked in this session.</p>
               </div>
-            ))}
-          </div>
-        </div>
+
+              <Link href={ROUTES.auditor.reports} className="text-sm text-emerald-600">
+                View All
+              </Link>
+            </div>
+
+            {reports.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-200 p-8 text-center">
+                <ShieldCheck className="mx-auto h-10 w-10 text-slate-300" />
+                <h3 className="mt-4 font-semibold text-slate-900">No audits yet</h3>
+                <p className="mt-2 text-sm text-slate-500">
+                  Verify an audit key to unlock the first payroll report.
+                </p>
+
+                <Link href={ROUTES.auditor.verify}>
+                  <Button className="mt-6 bg-emerald-600 text-white hover:bg-emerald-700">
+                    Verify Audit Key
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {reports.slice(0, 5).map((report) => (
+                  <Link
+                    key={report.payrollRunId}
+                    href={`${ROUTES.auditor.reports}/${report.payrollRunId}`}
+                    className="flex items-center justify-between py-4"
+                  >
+                    <div>
+                      <p className="font-medium text-slate-900">Payroll #{report.payrollRunId}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {report.companyName || 'Private company'}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
+                        {report.status || 'Verified'}
+                      </span>
+                      <ArrowRight className="h-4 w-4 text-slate-400" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
+          <CardContent className="p-6">
+            <h3 className="text-lg font-semibold text-slate-900">Audit access model</h3>
+
+            <div className="mt-4 space-y-3 text-sm text-slate-600">
+              <p>Public proof links show only totals.</p>
+              <p>Audit keys unlock full payroll detail.</p>
+              <p>Employee links show only one payment.</p>
+              <p>Audit logs record every access.</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
+  );
+}
+
+function QuickAction({
+  icon,
+  title,
+  description,
+  href,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  href: string;
+}) {
+  return (
+    <Link href={href}>
+      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-emerald-500 hover:shadow-lg">
+        <div className="rounded-lg bg-emerald-50 p-2">{icon}</div>
+        <div className="text-left">
+          <p className="font-semibold text-slate-900">{title}</p>
+          <p className="text-xs text-slate-500">{description}</p>
+        </div>
+      </div>
+    </Link>
   );
 }

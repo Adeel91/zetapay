@@ -66,7 +66,7 @@ interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function CardContent({ children, className = '', ...props }: CardContentProps) {
   return (
-    <div className={`p-6 pt-0 ${className}`} {...props}>
+    <div className={`${className}`} {...props}>
       {children}
     </div>
   );
@@ -79,7 +79,7 @@ interface CardFooterProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function CardFooter({ children, className = '', ...props }: CardFooterProps) {
   return (
-    <div className={`flex items-center p-6 pt-0 ${className}`} {...props}>
+    <div className={`flex items-center ${className}`} {...props}>
       {children}
     </div>
   );

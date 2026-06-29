@@ -55,6 +55,7 @@ type PayrollEmployeeRecord = {
 type PayrollRunDetail = {
   id: number;
   enterpriseId: number;
+  auditKey: string;
   periodStart: string;
   periodEnd: string;
   totalGross: string;
@@ -74,29 +75,33 @@ type PayrollRunDetail = {
   employees: PayrollEmployeeRecord[];
 };
 
+type GeneratedPayrollResult = {
+  payrollRunId: number;
+  publicVerificationUrl?: string;
+  employeeVerificationLinks?: {
+    employeeId: number;
+    payrollEmployeeId: number;
+    verificationUrl: string;
+    token: string;
+    expiresAt: string;
+  }[];
+};
+
 export default function EmployerPayrollDetailPage() {
   const params = useParams<{ id: string }>();
 
   const [data, setData] = useState<PayrollRunDetail | null>(null);
-  const [generatedResult, setGeneratedResult] = useState<{
-    payrollRunId: number;
-    publicVerificationUrl?: string;
-    employeeVerificationLinks?: {
-      employeeId: number;
-      payrollEmployeeId: number;
-      verificationUrl: string;
-      token: string;
-      expiresAt: string;
-    }[];
-  } | null>(null);
+  const [generatedResult, setGeneratedResult] = useState<GeneratedPayrollResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function copy(text?: string | null, label = 'value') {
     if (!text) return;
+
     await navigator.clipboard.writeText(text);
     setCopied(label);
+
     setTimeout(() => setCopied(null), 1600);
   }
 
@@ -106,8 +111,7 @@ export default function EmployerPayrollDetailPage() {
 
       if (rawGenerated) {
         try {
-          const parsed = JSON.parse(rawGenerated);
-          setGeneratedResult(parsed);
+          setGeneratedResult(JSON.parse(rawGenerated) as GeneratedPayrollResult);
         } catch {
           setGeneratedResult(null);
         }
@@ -155,8 +159,7 @@ export default function EmployerPayrollDetailPage() {
   }
 
   const verified = Boolean(data.batchRoot && data.proofHash);
-  const publicVerificationUrl =
-    generatedResult?.payrollRunId === data.id ? generatedResult.publicVerificationUrl : null;
+  const publicVerificationUrl = data.publicVerificationUrl;
 
   return (
     <div className="space-y-6">
@@ -193,10 +196,11 @@ export default function EmployerPayrollDetailPage() {
           <CardContent className="p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Public auditor proof link</h2>
+                <h2 className="text-lg font-semibold text-slate-900">Public proof link</h2>
                 <p className="mt-1 text-sm text-slate-500">
                   This public link shows totals and proof metadata only. It does not expose payees.
                 </p>
+
                 <p className="mt-3 rounded-2xl bg-slate-50 p-3 font-mono text-xs break-all text-slate-700">
                   {publicVerificationUrl}
                 </p>
@@ -216,6 +220,31 @@ export default function EmployerPayrollDetailPage() {
                   Open
                 </Button>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {data.auditKey && (
+        <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Auditor access key</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Share this key only with an authorized auditor. It unlocks the full payroll audit
+                  report.
+                </p>
+
+                <p className="mt-3 rounded-2xl bg-amber-50 p-3 font-mono text-sm font-semibold tracking-wide text-amber-800">
+                  {data.auditKey}
+                </p>
+              </div>
+
+              <Button variant="outline" onClick={() => copy(data.auditKey, 'audit-key')}>
+                <Copy className="mr-2 h-4 w-4" />
+                {copied === 'audit-key' ? 'Copied' : 'Copy key'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -274,6 +303,9 @@ export default function EmployerPayrollDetailPage() {
                 (link) => link.payrollEmployeeId === payee.id
               );
 
+              const verificationUrl =
+                generatedLink?.verificationUrl || payee.employeeVerificationLink?.verificationUrl;
+
               return (
                 <div
                   key={payee.id}
@@ -283,12 +315,15 @@ export default function EmployerPayrollDetailPage() {
                     <p className="font-medium text-slate-900">
                       {payee.employee?.fullName || `Employee #${payee.employeeId}`}
                     </p>
+
                     <p className="mt-1 text-sm text-slate-500">
                       {payee.employee?.email || 'No email'}
                     </p>
+
                     <p className="mt-1 truncate font-mono text-xs text-slate-400">
                       {payee.employee?.walletAddress || 'No wallet'}
                     </p>
+
                     <p className="mt-1 truncate font-mono text-xs text-slate-400">
                       Commitment: {payee.commitment || 'Not generated'}
                     </p>
@@ -303,14 +338,12 @@ export default function EmployerPayrollDetailPage() {
                   </span>
 
                   <div className="space-y-2">
-                    {generatedLink ? (
+                    {verificationUrl ? (
                       <>
                         <Button
                           variant="outline"
                           className="w-full"
-                          onClick={() =>
-                            copy(generatedLink.verificationUrl, `employee-${payee.id}`)
-                          }
+                          onClick={() => copy(verificationUrl, `employee-${payee.id}`)}
                         >
                           <Copy className="mr-2 h-4 w-4" />
                           {copied === `employee-${payee.id}` ? 'Copied' : 'Copy link'}
@@ -318,16 +351,14 @@ export default function EmployerPayrollDetailPage() {
 
                         <Button
                           className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
-                          onClick={() => window.open(generatedLink.verificationUrl, '_blank')}
+                          onClick={() => window.open(verificationUrl, '_blank')}
                         >
                           <ExternalLink className="mr-2 h-4 w-4" />
                           Open
                         </Button>
                       </>
                     ) : (
-                      <p className="text-xs text-slate-400">
-                        Link token hidden. Regenerate or send link from creation result.
-                      </p>
+                      <p className="text-xs text-slate-400">Verification link unavailable.</p>
                     )}
                   </div>
                 </div>
@@ -362,6 +393,7 @@ function HashRow({
     <div>
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-medium tracking-wider text-slate-400 uppercase">{label}</p>
+
         {value && (
           <button
             type="button"
@@ -396,6 +428,7 @@ function SummaryRow({
         {icon}
         {label}
       </span>
+
       <span className="text-sm font-semibold text-slate-900">{value}</span>
     </div>
   );

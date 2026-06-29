@@ -58,8 +58,8 @@ export const API = {
   },
   audit: {
     verify: '/api/audit/verify',
-    decrypt: '/api/audit/decrypt',
     reports: '/api/audit/reports',
+    history: '/api/audit/history',
   },
   stellar: {
     balance: '/api/stellar/balance',

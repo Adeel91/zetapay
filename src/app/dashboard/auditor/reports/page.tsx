@@ -1,141 +1,177 @@
 'use client';
 
-import { useState } from 'react';
-import { FileText, Download, Calendar, Filter, Search, Eye } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { CalendarDays, FileWarning, Search, Users } from 'lucide-react';
+
+import { ROUTES } from '@/config';
 import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { DataTable } from '@/components/ui/DataTable';
-import { EmptyState } from '@/components/ui/EmptyState';
-import type { Report } from '@/types/report';
 
-const MOCK_REPORTS: Report[] = [
-  {
-    id: 'RPT-2026-001',
-    name: 'Q2 Compliance Report',
-    date: '2026-06-23',
-    type: 'PDF',
-    size: '2.4 MB',
-    status: 'Ready',
-  },
-  {
-    id: 'RPT-2026-002',
-    name: 'Payroll Audit Summary',
-    date: '2026-06-22',
-    type: 'CSV',
-    size: '856 KB',
-    status: 'Ready',
-  },
-  {
-    id: 'RPT-2026-003',
-    name: 'Annual Tax Report',
-    date: '2026-06-20',
-    type: 'PDF',
-    size: '4.1 MB',
-    status: 'Processing',
-  },
-];
+type AuditReportSummary = {
+  payrollRunId: number;
+  companyName?: string | null;
+  periodStart?: string;
+  periodEnd?: string;
+  payeeCount?: number;
+  totalXlm?: string;
+  totalUsdc?: string;
+  status?: string | null;
+  verifiedAt?: string;
+};
 
-const COLUMNS = [
-  { key: 'name', header: 'Report Name' },
-  { key: 'date', header: 'Date' },
-  { key: 'type', header: 'Type' },
-  { key: 'size', header: 'Size' },
-  {
-    key: 'status',
-    header: 'Status',
-    className: 'text-center',
-    render: (item: Report) => (
-      <span
-        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-          item.status === 'Ready'
-            ? 'bg-emerald-50 text-emerald-600'
-            : 'bg-yellow-50 text-yellow-600'
-        }`}
-      >
-        {item.status}
-      </span>
-    ),
-  },
-  {
-    key: 'actions',
-    header: '',
-    className: 'text-right',
-    render: () => (
-      <div className="flex justify-end gap-2">
-        <Button variant="ghost" size="sm" icon={<Eye className="h-4 w-4" />}>
-          View
-        </Button>
-        <Button variant="ghost" size="sm" icon={<Download className="h-4 w-4" />}>
-          Download
-        </Button>
+function readReportsFromSession(): AuditReportSummary[] {
+  const raw = window.sessionStorage.getItem('zetapayAuditReports');
+
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export default function AuditorReportsPage() {
+  const [reports, setReports] = useState<AuditReportSummary[]>([]);
+  const [query, setQuery] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setReports(readReportsFromSession());
+      setMounted(true);
+    });
+  }, []);
+
+  const filteredReports = reports.filter((report) => {
+    const normalized = query.trim().toLowerCase();
+
+    if (!normalized) return true;
+
+    return (
+      String(report.payrollRunId).includes(normalized) ||
+      (report.companyName || '').toLowerCase().includes(normalized)
+    );
+  });
+
+  if (!mounted) {
+    return (
+      <div className="flex min-h-[420px] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
       </div>
-    ),
-  },
-];
-
-export default function AuditorReports() {
-  const [dateRange, setDateRange] = useState('last30');
+    );
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Reports"
-        description="Generate and export compliance reports"
-        action={<Button icon={<FileText className="h-4 w-4" />}>Generate Report</Button>}
+        title="Audit Reports"
+        description="Browse payroll reports unlocked through verified audit keys."
+        backLink={{ href: ROUTES.auditor.root, label: 'Back to Dashboard' }}
+        action={
+          <Link href={ROUTES.auditor.verify}>
+            <Button className="bg-emerald-600 text-white hover:bg-emerald-700">
+              Verify New Key
+            </Button>
+          </Link>
+        }
       />
 
-      <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white p-4">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-slate-400" />
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
-          >
-            <option value="last7">Last 7 days</option>
-            <option value="last30">Last 30 days</option>
-            <option value="last90">Last 90 days</option>
-            <option value="all">All time</option>
-          </select>
-        </div>
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search reports..."
-            className="w-full rounded-lg border border-slate-200 py-1.5 pr-3 pl-9 text-sm focus:border-indigo-500 focus:outline-none"
-          />
-        </div>
-        <Button variant="outline" size="sm" icon={<Filter className="h-4 w-4" />}>
-          Filter
-        </Button>
-      </div>
+      <Card className="mt-5 border-0 bg-white shadow-xl shadow-slate-200/50">
+        <CardContent className="p-6">
+          <div className="relative">
+            <Search className="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search by company or payroll id"
+              className="w-full rounded-2xl border-2 border-slate-200 bg-white py-3 pr-4 pl-11 text-sm transition outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-      {MOCK_REPORTS.length > 0 ? (
-        <DataTable<Report> data={MOCK_REPORTS} columns={COLUMNS} />
+      {filteredReports.length === 0 ? (
+        <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
+          <CardContent className="p-10 text-center">
+            <FileWarning className="mx-auto h-10 w-10 text-slate-300" />
+            <h2 className="mt-4 text-xl font-bold text-slate-900">No audit reports found</h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Verify an audit key to unlock a report in this auditor session.
+            </p>
+            <Link href={ROUTES.auditor.verify}>
+              <Button className="mt-6 bg-emerald-600 text-white hover:bg-emerald-700">
+                Verify Audit Key
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       ) : (
-        <EmptyState
-          icon={<FileText className="h-8 w-8 text-slate-300" />}
-          title="No reports generated"
-          description="Generate your first compliance report"
-          action={<Button icon={<FileText className="h-4 w-4" />}>Generate Report</Button>}
-        />
-      )}
+        <div className="space-y-4">
+          {filteredReports.map((report) => (
+            <Link
+              key={report.payrollRunId}
+              href={`${ROUTES.auditor.reports}/${report.payrollRunId}`}
+            >
+              <Card className="border-0 bg-white shadow-xl shadow-slate-200/50 transition hover:shadow-emerald-500/10">
+                <CardContent className="grid gap-4 p-5 lg:grid-cols-[1fr_160px_160px_140px] lg:items-center">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold text-slate-900">
+                        Payroll #{report.payrollRunId}
+                      </h3>
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                        {report.status || 'verified'}
+                      </span>
+                    </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-center">
-          <p className="text-2xl font-bold text-slate-900">12</p>
-          <p className="text-sm text-slate-500">Reports this month</p>
+                    <p className="mt-2 text-sm text-slate-500">
+                      {report.companyName || 'Private company'}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <CalendarDays className="h-4 w-4" />
+                        {report.periodStart && report.periodEnd
+                          ? `${new Date(report.periodStart).toLocaleDateString()} to ${new Date(
+                              report.periodEnd
+                            ).toLocaleDateString()}`
+                          : 'Payroll period'}
+                      </span>
+
+                      <span className="flex items-center gap-1">
+                        <Users className="h-4 w-4" />
+                        {report.payeeCount || 0} payees
+                      </span>
+                    </div>
+                  </div>
+
+                  <Metric label="XLM" value={`${report.totalXlm || '0'} XLM`} />
+                  <Metric label="USDC" value={`${report.totalUsdc || '0'} USDC`} />
+                  <Metric
+                    label="Verified"
+                    value={
+                      report.verifiedAt ? new Date(report.verifiedAt).toLocaleDateString() : 'Now'
+                    }
+                  />
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-center">
-          <p className="text-2xl font-bold text-slate-900">8</p>
-          <p className="text-sm text-slate-500">Downloaded</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-center">
-          <p className="text-2xl font-bold text-emerald-600">100%</p>
-          <p className="text-sm text-slate-500">Compliance rate</p>
-        </div>
-      </div>
+      )}
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-4">
+      <p className="text-xs font-medium tracking-wider text-slate-400 uppercase">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
     </div>
   );
 }

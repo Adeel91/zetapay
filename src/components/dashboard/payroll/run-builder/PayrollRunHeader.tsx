@@ -8,7 +8,7 @@ export function PayrollRunHeader({
   batchCount: number;
 }) {
   return (
-    <div className="mb-10 bg-gradient-to-br from-emerald-600 to-emerald-800 px-6 py-6 text-white">
+    <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 px-6 py-6 text-white">
       <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm text-emerald-50">

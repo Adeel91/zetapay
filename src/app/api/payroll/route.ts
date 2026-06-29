@@ -22,8 +22,10 @@ type PayrollCreateRequest = {
 
 const EMPLOYEE_LINK_EXPIRY_DAYS = 30;
 
-function randomHex(bytes = 32) {
-  return crypto.randomBytes(bytes).toString('hex');
+function generateAuditKey() {
+  const hex = crypto.randomBytes(10).toString('hex').toUpperCase();
+
+  return `AUD-${hex.slice(0, 4)}-${hex.slice(4, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}`;
 }
 
 function getBaseUrl(request: Request) {
@@ -120,7 +122,7 @@ export async function POST(request: Request) {
     }
 
     const baseUrl = getBaseUrl(request);
-    const auditKey = randomHex(16);
+    const auditKey = generateAuditKey();
 
     const publicVerificationToken = generateToken();
     const publicVerificationTokenHash = hashToken(publicVerificationToken);
@@ -269,6 +271,7 @@ export async function POST(request: Request) {
       {
         success: true,
         payrollRunId: payrollRun.id,
+        auditKey,
         status: payrollRun.status,
         batchRoot: batch.batchRoot,
         payrollRunHash: batch.payrollRunHash,

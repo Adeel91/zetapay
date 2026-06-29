@@ -1,24 +1,30 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+
 import { AUDITOR, DASHBOARD, EMPLOYER, ROUTES } from '@/config';
 
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
+  const role = request.cookies.get('zetaRole')?.value;
 
-  if (path.startsWith(DASHBOARD)) {
-    const role = request.cookies.get('zetaRole')?.value;
+  if (!path.startsWith(DASHBOARD)) {
+    return NextResponse.next();
+  }
 
-    if (!role) {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
+  if (!role) {
+    const loginUrl = path.startsWith(ROUTES.auditor.root)
+      ? ROUTES.auth.auditorLogin
+      : ROUTES.auth.employerConnect;
 
-    if (path.startsWith(ROUTES.employer.root) && role !== EMPLOYER) {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
+    return NextResponse.redirect(new URL(loginUrl, request.url));
+  }
 
-    if (path.startsWith(ROUTES.auditor.root) && role !== AUDITOR) {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
+  if (path.startsWith(ROUTES.employer.root) && role !== EMPLOYER) {
+    return NextResponse.redirect(new URL(ROUTES.auth.employerConnect, request.url));
+  }
+
+  if (path.startsWith(ROUTES.auditor.root) && role !== AUDITOR) {
+    return NextResponse.redirect(new URL(ROUTES.auth.auditorLogin, request.url));
   }
 
   return NextResponse.next();

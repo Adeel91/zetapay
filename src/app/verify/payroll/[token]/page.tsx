@@ -100,7 +100,7 @@ export default function PublicPayrollVerificationPage() {
             </p>
           </div>
 
-          <CardContent className="mt-5 grid gap-4 p-6 md:grid-cols-4">
+          <CardContent className="grid gap-4 p-6 md:grid-cols-4">
             <Metric label="Status" value={data.verified ? 'Verified record' : 'Incomplete'} />
             <Metric label="Company" value={data.payrollRun.companyName || 'Private company'} />
             <Metric label="Payees" value={`${data.payrollRun.payeeCount || 0}`} />
