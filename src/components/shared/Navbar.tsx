@@ -246,7 +246,7 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
 
   return (
     <nav className="fixed top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-      <div className={`mx-auto px-4 sm:px-6 lg:px-8 ${isDashboard ? 'max-w-full' : 'max-w-6xl'}`}>
+      <div className={`mx-auto px-4 sm:px-6 lg:px-8 ${isDashboard ? 'max-w-full' : 'max-w-7xl'}`}>
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 shadow-lg shadow-emerald-600/30">

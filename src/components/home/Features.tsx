@@ -1,7 +1,67 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Shield, Zap, Eye, Globe, ArrowUpRight } from 'lucide-react';
+import {
+  Building2,
+  Eye,
+  FileSearch,
+  Link2,
+  LockKeyhole,
+  ReceiptText,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
+
+const features = [
+  {
+    icon: Building2,
+    title: 'Employer payroll console',
+    text: 'Employers onboard an enterprise, manage employees, create payroll runs, generate commitments, build a Merkle batch, and issue verification links.',
+    tag: 'Completed',
+  },
+  {
+    icon: Users,
+    title: 'Employee payslip verification',
+    text: 'Every employee receives a unique private link to verify their own payment, commitment, Merkle proof, and transaction status.',
+    tag: 'Completed',
+  },
+  {
+    icon: FileSearch,
+    title: 'Auditor reports',
+    text: 'Auditors authenticate, enter an audit key, inspect payroll reports, view individual records, and generate audit logs.',
+    tag: 'Completed',
+  },
+  {
+    icon: Eye,
+    title: 'Public proof page',
+    text: 'Public verification exposes payroll totals, proof metadata, batch root, and payroll hash without leaking employee information.',
+    tag: 'Completed',
+  },
+  {
+    icon: LockKeyhole,
+    title: 'Encrypted verification tokens',
+    text: 'Verification tokens are protected with SHA256 token hashes and AES256 encrypted payloads instead of plaintext storage.',
+    tag: 'Completed',
+  },
+  {
+    icon: ReceiptText,
+    title: 'Payroll history',
+    text: 'Employers can review payroll runs, employee records, proof metadata, encrypted links, and audit key status.',
+    tag: 'Completed',
+  },
+  {
+    icon: Link2,
+    title: 'Soroban contracts',
+    text: 'Smart contracts for batch payroll, on chain verification, and Stellar payment execution are the next integration milestone.',
+    tag: 'In progress',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Groth16 proofs',
+    text: 'Proof generation currently uses placeholders. Real Groth16 proof generation and on chain verification are planned next.',
+    tag: 'In progress',
+  },
+];
 
 export function Features() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -17,114 +77,67 @@ export function Features() {
       },
       { threshold: 0.1 }
     );
+
     if (sectionRef.current) observer.observe(sectionRef.current);
+
     return () => observer.disconnect();
   }, []);
 
-  const features = [
-    {
-      icon: Shield,
-      title: 'Zero-Knowledge Cryptography',
-      description:
-        'Salaries are masked completely on-chain using advanced Noir ZK circuits. Corporate liquid resources, batch lists, and individual payloads remain invisible to competitors while validating balance checks.',
-      badge: 'Circuits Compiled: Noir v0.32',
-      highlight: 'Immutable Privacy',
-      span: 'col-span-2',
-    },
-    {
-      icon: Zap,
-      title: '2-Second Settlement',
-      description:
-        'By anchoring transactions onto the Stellar network ledger, disbursements execute globally with absolute atomic finality in seconds.',
-      badge: '2.0s',
-      span: 'col-span-1',
-    },
-    {
-      icon: Eye,
-      title: 'Audit-Ready viewing keys',
-      description:
-        'Provide cryptographically secure viewing keys to regulatory auditors or accounting teams. Grant secure data visibility without leaking public credentials.',
-      badge: 'Explore Compliance Framework',
-      span: 'col-span-1',
-    },
-    {
-      icon: Globe,
-      title: 'Borderless USDC Rail Architecture',
-      description:
-        'Disburse payroll to employees, offshore development clusters, and freelancers using Stellar-native USD Coin. Avoid exorbitant wire handling premiums and complex banking settlement cycles.',
-      badge: 'Americas • Europe / Africa • APAC Channels',
-      span: 'col-span-2',
-    },
-  ];
-
   return (
-    <section
-      ref={sectionRef}
-      className="relative overflow-hidden border-t border-slate-100 bg-white py-24"
-    >
-      <div className="absolute -top-20 -right-20 h-80 w-80 rounded-full bg-indigo-100/30 blur-3xl" />
-      <div className="absolute -bottom-20 -left-20 h-80 w-80 rounded-full bg-emerald-100/30 blur-3xl" />
+    <section ref={sectionRef} className="relative overflow-hidden bg-white py-28">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.12),transparent_30%)]" />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
-          className="flex flex-col justify-between gap-6 border-b border-slate-200 pb-12 md:flex-row md:items-end"
+          className="max-w-3xl"
           style={{
             opacity: isVisible ? 1 : 0,
             transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
-            transition: 'all 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.2s',
+            transition: 'all 800ms cubic-bezier(0.22, 1, 0.36, 1)',
           }}
         >
-          <div className="space-y-2">
-            <span className="text-xs font-bold tracking-widest text-emerald-600 uppercase">
-              Capabilities
-            </span>
-            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-              Engineered for Enterprise Compliance
-            </h2>
-          </div>
-          <p className="max-w-md text-sm text-slate-500 sm:text-base">
-            ZetaPay merges private execution layers with public network finality to create a
-            seamless settlement channel.
+          <p className="text-sm font-bold tracking-[0.26em] text-emerald-600 uppercase">
+            Product surface
+          </p>
+          <h2 className="mt-4 text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl">
+            Payroll privacy from creation to verification.
+          </h2>
+          <p className="mt-5 text-lg leading-8 text-slate-600">
+            ZetaPay handles the full privacy flow: employer batch creation, employee payslip
+            verification, auditor reporting, and public proof metadata.
           </p>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {features.map((feature, index) => {
             const Icon = feature.icon;
+            const isProgress = feature.tag === 'In progress';
+
             return (
               <div
-                key={index}
-                className={`group relative rounded-2xl border border-slate-200/80 bg-slate-50/50 p-8 transition-all duration-500 hover:-translate-y-1 hover:bg-white hover:shadow-2xl ${feature.span === 'col-span-2' ? 'md:col-span-2' : ''} ${feature.span === 'col-span-1' ? '' : ''}`}
+                key={feature.title}
+                className="group rounded-3xl border border-slate-200 bg-slate-50 p-6 transition duration-500 hover:-translate-y-1 hover:bg-white hover:shadow-2xl hover:shadow-slate-200/70"
                 style={{
                   opacity: isVisible ? 1 : 0,
-                  transform: isVisible ? 'translateY(0)' : 'translateY(30px)',
-                  transition: `all 0.7s cubic-bezier(0.22, 1, 0.36, 1) ${0.3 + index * 0.1}s`,
+                  transform: isVisible ? 'translateY(0)' : 'translateY(24px)',
+                  transition: `all 700ms cubic-bezier(0.22, 1, 0.36, 1) ${index * 70}ms`,
                 }}
               >
-                <div className="flex h-full flex-col justify-between">
-                  <div className="space-y-4">
-                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-slate-100 bg-white text-emerald-600 shadow-sm transition-all duration-300 group-hover:bg-emerald-600 group-hover:text-white group-hover:shadow-lg">
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div className="space-y-2">
-                      <h3 className="text-xl font-bold text-slate-900">{feature.title}</h3>
-                      <p className="max-w-xl text-sm leading-relaxed text-slate-600">
-                        {feature.description}
-                      </p>
-                    </div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="rounded-2xl bg-white p-3 text-emerald-600 shadow-sm ring-1 ring-slate-200 transition group-hover:bg-emerald-600 group-hover:text-white">
+                    <Icon className="h-5 w-5" />
                   </div>
-                  <div className="mt-8 flex items-center justify-between border-t border-slate-200/60 pt-4 font-mono text-xs text-slate-400">
-                    <span>{feature.badge}</span>
-                    {feature.highlight && (
-                      <span className="font-semibold text-emerald-600">{feature.highlight}</span>
-                    )}
-                    {!feature.highlight && feature.span === 'col-span-1' && (
-                      <span className="inline-flex items-center gap-1 text-slate-400 transition-colors group-hover:text-emerald-600">
-                        <ArrowUpRight className="h-3.5 w-3.5" />
-                      </span>
-                    )}
-                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold ${
+                      isProgress ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                    }`}
+                  >
+                    {feature.tag}
+                  </span>
                 </div>
+
+                <h3 className="mt-6 text-xl font-bold text-slate-950">{feature.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600">{feature.text}</p>
               </div>
             );
           })}

@@ -7,10 +7,11 @@ import { Footer } from '@/components/shared/Footer';
 import { EMPLOYER, AUDITOR } from '@/config';
 
 export const metadata: Metadata = {
-  title: 'ZetaPay - Global Payroll with Zero-Knowledge Privacy',
+  title: 'ZetaPay | Private payroll verification on Stellar',
   description:
-    'Run global payroll on Stellar with zero-knowledge privacy. Instant settlement. Full compliance.',
-  keywords: 'payroll, stellar, blockchain, zero-knowledge, privacy, enterprise',
+    'ZetaPay helps employers create private payroll commitments, employee payslip verification links, public proof metadata, and controlled auditor reports.',
+  keywords:
+    'ZetaPay, private payroll, Stellar, Soroban, zero knowledge proofs, Merkle payroll, encrypted verification',
 };
 
 type UserInfo = {
@@ -30,7 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   if (role === EMPLOYER && wallet) {
     userInfo = {
       label: `${wallet.slice(0, 8)} ... ${wallet.slice(-8)}`,
-      icon: 'Wallet' as const,
+      icon: 'Wallet',
       type: EMPLOYER,
     };
   } else if (role === AUDITOR && auditorSession) {
@@ -38,13 +39,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       const session = JSON.parse(decodeURIComponent(auditorSession));
       userInfo = {
         label: session.email || 'auditor@company.com',
-        icon: 'User' as const,
+        icon: 'User',
         type: AUDITOR,
       };
     } catch {
       userInfo = {
         label: AUDITOR,
-        icon: 'User' as const,
+        icon: 'User',
         type: AUDITOR,
       };
     }
@@ -52,7 +53,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en">
-      <body className="bg-slate-50" suppressHydrationWarning>
+      <body className="bg-slate-950" suppressHydrationWarning>
         <Providers>
           <Navbar initialUserInfo={userInfo} />
           <main className="pt-16">{children}</main>
