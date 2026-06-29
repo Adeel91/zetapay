@@ -1,742 +1,420 @@
 # ZetaPay
 
-ZetaPay is a private payroll and audit system built on Stellar Soroban using real Groth16 proofs over BN254.
+Privacy preserving payroll powered by Stellar, Zero Knowledge Proofs, and encrypted verification.
 
-The goal is to let an employer submit payroll batches for employees, contractors, freelancers, vendors, consultants, and contributors while allowing auditors to verify payroll totals without seeing every private salary detail.
+---
 
-## Current status
+## Overview
 
-This branch rebuilt the zero knowledge payroll system from scratch.
+ZetaPay is a payroll platform that allows employers to pay employees while preserving payroll privacy.
 
-Current working pieces:
+Instead of exposing every payment publicly, payrolls are represented by cryptographic commitments, Merkle trees, and Zero Knowledge Proofs. Employees receive private verification links proving their own payment, while auditors receive controlled access using audit keys.
 
-1. Circom payroll circuit
-2. Poseidon payroll commitments
-3. Mixed XLM and USDC inside one payroll batch
-4. Groth16 proof generation with snarkjs
-5. Local proof verification with snarkjs
-6. Rust fixture export from proof artifacts
-7. Soroban BN254 Groth16 verifier contract
-8. Soroban payroll contract
-9. Payroll batch submission
-10. Payroll batch execution
-11. Replay protection
-12. Total verification against proof public inputs
-13. Payroll run summary tracking
-14. Real integration tests with no mock verifier
+The goal is to make payroll:
 
-## Why this branch exists
+- Private
+- Auditable
+- Cryptographically verifiable
+- Blockchain native
 
-The old version used Noir and Barretenberg proof artifacts, but the Soroban verifier was written for Groth16 over BN254. Those proof systems are not compatible.
+---
 
-This branch uses a consistent stack from end to end:
+# Features
 
-1. Circom circuit
-2. snarkjs Groth16 proof
-3. BN254 verification key
-4. Soroban BN254 verifier
-5. Payroll contract calling the verifier
+## Employer Portal
 
-## Main architecture
+- Employer authentication
+- Enterprise onboarding
+- Employee management
+- Payroll generation
+- Merkle batch creation
+- Commitment generation
+- Payroll proof generation placeholder
+- Employee verification link generation
+- Public verification link generation
+- Auditor access key generation
+- Payroll history
+- Payroll details
+- Secure encrypted verification tokens
 
-The system has three intended personas:
+---
 
-1. Employer
+## Auditor Portal
 
-Creates payroll runs, submits proof batches, and executes payments.
+- Supabase authentication
+- Dashboard
+- Audit key verification
+- Payroll reports
+- Individual report viewer
+- Audit history
+- Audit log generation
 
-2. Auditor
+---
 
-Checks payroll summaries, batch status, execution status, and totals.
+## Employee Verification
 
-3. Payee
+Employees receive a unique verification link.
 
-Not implemented in the UI yet, but planned. A payee should later be able to prove inclusion in a payroll batch without seeing other people salary data.
+They can verify:
 
-## Payroll model
+- Their payment
+- Commitment
+- Merkle proof
+- Transaction status
 
-A payroll run can contain many batches.
+without seeing any other employee's salary.
 
-Example:
+---
 
-```text
-Payroll run A
-  batch 0
-  batch 1
-  batch 2
-  batch 3
+## Public Verification
+
+Public verification links expose:
+
+- Payroll totals
+- Proof metadata
+- Batch root
+- Payroll hash
+
+No employee information is exposed.
+
+---
+
+# Security
+
+## Encrypted Tokens
+
+Verification tokens are never stored in plaintext.
+
+Stored values include
+
+- SHA256 token hash
+- AES encrypted token payload
+
+Only the encrypted payload can reconstruct the original verification URL.
+
+---
+
+## Audit Keys
+
+Each payroll receives a unique audit key.
+
+Example
+
+```
+AUD-3A91-8C27-FE19-0B5D
 ```
 
-This matters because Groth16 circuits have fixed size. Instead of creating one massive proof for thousands of people, the payroll is split into many fixed size batches.
+Only authorized auditors can use this key to unlock a payroll report.
 
-For production, the intended batch size is 128 payees per proof.
+---
 
-For development, the circuit currently uses a smaller batch size so compilation and tests are fast.
+## Merkle Commitments
 
-## Supported payee types
+Each employee payment becomes a commitment.
 
-The circuit and contract support these payee categories:
+Commitments are inserted into a Merkle tree.
 
-```text
-0 = Employee
-1 = Contractor
-2 = Freelancer
-3 = Vendor
-4 = Consultant
-5 = Contributor
+Each employee receives
+
+- Merkle path
+- Path indices
+- Commitment
+
+allowing independent proof verification.
+
+---
+
+# Technology Stack
+
+Frontend
+
+- Next.js 15
+- React
+- TypeScript
+- Tailwind CSS
+- Lucide Icons
+
+Backend
+
+- Next.js Route Handlers
+- Drizzle ORM
+- PostgreSQL
+
+Authentication
+
+- Supabase Auth
+
+Blockchain
+
+- Stellar
+- Soroban
+
+Cryptography
+
+- SHA256
+- AES256
+- Merkle Trees
+- Commitment Hashing
+- Groth16 placeholder
+
+---
+
+# Database
+
+Current tables
+
+- enterprises
+- employees
+- users
+- payroll_runs
+- payroll_employees
+- payroll_verification_links
+- audit_logs
+- audit_keys
+- zk_proofs
+- payroll_settings
+- transaction_logs
+
+---
+
+# Payroll Flow
+
+```
+Employer Login
+
+↓
+
+Create Payroll
+
+↓
+
+Generate Commitments
+
+↓
+
+Build Merkle Tree
+
+↓
+
+Generate Batch Root
+
+↓
+
+Generate Payroll Hash
+
+↓
+
+Store Proof
+
+↓
+
+Generate
+
+• Public Verification Link
+
+• Employee Verification Links
+
+• Auditor Key
+
+↓
+
+Employer Shares
+
+↓
+
+Employees verify privately
+
+↓
+
+Auditors verify using audit key
+
+↓
+
+Public verifies proof metadata
 ```
 
-## Supported tokens
+---
 
-Each payee has their own token type.
+# Current Project Status
 
-```text
-0 = XLM
-1 = USDC
+## Completed
+
+✅ Employer authentication
+
+✅ Enterprise onboarding
+
+✅ Employee management
+
+✅ Payroll generation
+
+✅ Merkle tree generation
+
+✅ Commitment generation
+
+✅ Payroll hashing
+
+✅ Public verification
+
+✅ Employee verification
+
+✅ Auditor authentication
+
+✅ Auditor reports
+
+✅ Audit history
+
+✅ Encrypted verification tokens
+
+✅ Secure audit keys
+
+---
+
+## In Progress
+
+- Soroban smart contracts
+- Groth16 proof generation
+- On chain verification
+- Stellar payment execution
+
+---
+
+## Planned
+
+- Batch payroll smart contracts
+- On chain proof verification
+- Automatic Stellar settlement
+- Multi batch payrolls
+- Multi enterprise support
+- Email delivery
+- PDF exports
+- Analytics dashboard
+
+---
+
+# Environment Variables
+
+```
+DATABASE_URL=
+
+NEXT_PUBLIC_SUPABASE_URL=
+
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+
+SUPABASE_SERVICE_ROLE_KEY=
+
+TOKEN_ENCRYPTION_KEY=
+
+NEXT_PUBLIC_APP_URL=
 ```
 
-This means one payroll batch can include both XLM and USDC payments.
+Generate the encryption key
 
-Example:
-
-```text
-Employee 1 receives XLM
-Employee 2 receives USDC
-Freelancer 1 receives USDC
-Vendor 1 receives XLM
+```
+openssl rand -hex 32
 ```
 
-## Payroll commitment
+---
 
-Each payee is committed with Poseidon:
+# Local Development
 
-```text
-Poseidon(
-  payee_id,
-  recipient_hash,
-  amount,
-  payee_type,
-  token_type,
-  period_id,
-  salt
-)
+Install
+
+```
+npm install
 ```
 
-Meaning:
+Run
 
-1. `payee_id` comes from the database
-2. `recipient_hash` represents the recipient wallet hash
-3. `amount` is the payment amount
-4. `payee_type` identifies employee, contractor, freelancer, vendor, consultant, or contributor
-5. `token_type` identifies XLM or USDC
-6. `period_id` identifies the payroll period
-7. `salt` hides the commitment from brute force guessing
-
-## Current circuit public inputs
-
-The current circuit exposes:
-
-```text
-commitments
-total_amount
-total_xlm
-total_usdc
-employee_total
-contractor_total
-freelancer_total
-vendor_total
-consultant_total
-contributor_total
-employee_count
-contractor_count
-freelancer_count
-vendor_count
-consultant_count
-contributor_count
-period_id_public
-payroll_run_hash_public
-batch_index_public
-batch_count_public
-payee_count_total
+```
+npm run dev
 ```
 
-The contract parses these public inputs and compares them against submitted payment data.
+Database
 
-This prevents the frontend from submitting payment data that does not match the proof.
+```
+npm run db:generate
 
-## Current contract flow
-
-### initialize
-
-Stores:
-
-```text
-employer
-verifier contract address
-XLM token contract
-USDC token contract
-verification key
-batch counter
+npm run db:migrate
 ```
 
-Only the employer can initialize.
+---
 
-### submit_batch
+# Repository Structure
 
-The employer submits:
+```
+src/
 
-```text
-payments
-proof
-public inputs
-payroll run hash
-payroll run hash field
-period id
-batch index
-batch count
-commitment root
+app/
+
+components/
+
+lib/
+
+api/
+
+dashboard/
+
+verify/
+
+auth/
+
+contracts/
+
+scripts/
+
+drizzle/
+
+public/
 ```
 
-The contract:
+---
 
-1. Requires employer authorization
-2. Rejects empty payment batches
-3. Computes a proof hash
-4. Rejects duplicate proofs
-5. Calls the real `zk-verifier` contract
-6. Rejects invalid proofs
-7. Parses totals from public inputs
-8. Checks payment count
-9. Checks payment totals against proof totals
-10. Checks period id, payroll run hash field, batch index, and batch count
-11. Stores the payroll record
-12. Marks the proof as processed
-13. Updates payroll run summary
+# Hackathon Vision
 
-### execute_batch
+Traditional payroll exposes sensitive employee information.
 
-The employer executes an already submitted batch.
+ZetaPay replaces trust with cryptographic proofs.
 
-The contract:
+Employers prove payroll correctness.
 
-1. Requires employer authorization
-2. Loads the payroll record
-3. Rejects already executed batches
-4. Transfers XLM and USDC to recipients
-5. Marks the batch as executed
-6. Updates payroll run summary
+Employees prove individual payments.
 
-## Payroll run summary
+Auditors verify compliance.
 
-The payroll contract tracks a summary per payroll run:
+The public verifies totals.
 
-```text
-payroll_run_hash
-period_id
-batch_count
-submitted_batches
-executed_batches
-total_amount
-total_xlm
-total_usdc
-is_complete
-is_fully_executed
-```
+Nobody learns information they should not have access to.
 
-This is the main auditor friendly view.
+---
 
-## Contracts
+# Current Limitations
 
-The contracts workspace currently contains:
+Proof generation is currently represented by placeholders.
 
-```text
-contracts
-  Cargo.toml
-  zk-verifier
-    Cargo.toml
-    src
-      lib.rs
-      fixtures.rs
-      test.rs
-  zk-payroll
-    Cargo.toml
-    src
-      lib.rs
-      contract.rs
-      error.rs
-      storage.rs
-      types.rs
-      fixtures.rs
-      test.rs
-```
+Real Groth16 proof generation and Soroban verification are the next milestone.
 
-## zk verifier contract
+---
 
-The verifier contract is a real Groth16 verifier over BN254 using Soroban native crypto APIs.
+# Next Milestone
 
-It exposes:
+1. Deploy Soroban contracts
 
-```rust
-verify(vk, proof, public_inputs) -> Result<bool, VerifierError>
-```
+2. Replace placeholder proofs with Groth16
 
-It checks:
+3. Submit payroll batches on chain
 
-1. Verification key length
-2. Public input count
-3. Groth16 pairing equation
+4. Verify proofs on chain
 
-The verifier test uses real proof fixtures exported from snarkjs.
+5. Execute Stellar payments
 
-## zk payroll contract
+6. Record transaction hashes
 
-The payroll contract calls `zk-verifier`.
+7. Verify employee payouts on chain
 
-It is responsible for:
+---
 
-1. Employer authorization
-2. Proof replay prevention
-3. Proof verification
-4. Totals validation
-5. Payroll record storage
-6. Payroll run summary tracking
-7. XLM and USDC transfer execution
+# Authors
 
-## Current tests
+Built for the Stellar Hackathon.
 
-### zk verifier
-
-Command:
-
-```bash
-yarn contracts:zk-verifier:test
-```
-
-Current test:
-
-```text
-verifies_real_groth16_payroll_proof
-```
-
-This verifies the real Groth16 proof generated from the Circom circuit.
-
-### zk payroll
-
-Command:
-
-```bash
-yarn contracts:zk-payroll:test
-```
-
-Current tested behavior:
-
-```text
-submit batch verifies real Groth16 proof and stores record
-execute batch transfers XLM and USDC once
-submit batch rejects duplicate proof
-submit batch rejects payment totals that do not match proof
-execute batch rejects unknown batch
-payroll run summary tracks submission and execution
-```
-
-## Installed packages
-
-Removed old Noir packages:
-
-```bash
-yarn remove @noir-lang/backend_barretenberg @noir-lang/noir_js @noir-lang/noirc_abi
-```
-
-Installed Groth16 and Circom tooling:
-
-```bash
-yarn add snarkjs circomlibjs circomlib
-yarn add -D circom_tester
-```
-
-Installed Circom compiler from source:
-
-```bash
-cd /tmp
-git clone https://github.com/iden3/circom.git
-cd circom
-cargo build --release
-cargo install --path circom
-```
-
-Confirmed with:
-
-```bash
-circom --version
-```
-
-Working version used:
-
-```text
-circom compiler 2.2.3
-```
-
-The temporary source folder can be removed after install:
-
-```bash
-rm -rf /tmp/circom
-```
-
-## Important package scripts
-
-### Circuit scripts
-
-```json
-"circuits:clean": "rm -rf circuits/payroll/build/*",
-"circuits:compile": "circom circuits/payroll/circuits/payroll.circom --r1cs --wasm --sym -l node_modules -o circuits/payroll/build",
-"circuits:inputs": "node circuits/payroll/scripts/generate-inputs.js",
-"circuits:witness": "node circuits/payroll/build/payroll_js/generate_witness.js circuits/payroll/build/payroll_js/payroll.wasm circuits/payroll/inputs/xlm.json circuits/payroll/build/witness.wtns",
-"circuits:ptau": "mkdir -p circuits/payroll/ptau && test -f circuits/payroll/ptau/powersOfTau28_hez_final_15.ptau || curl -L -o circuits/payroll/ptau/powersOfTau28_hez_final_15.ptau https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_15.ptau",
-"circuits:setup": "yarn circuits:ptau && npx snarkjs groth16 setup circuits/payroll/build/payroll.r1cs circuits/payroll/ptau/powersOfTau28_hez_final_15.ptau circuits/payroll/build/payroll_0000.zkey && npx snarkjs zkey contribute circuits/payroll/build/payroll_0000.zkey circuits/payroll/build/payroll_final.zkey --name='ZetaPay local contribution' -v -e='zetapay payroll groth16 local entropy' && npx snarkjs zkey export verificationkey circuits/payroll/build/payroll_final.zkey circuits/payroll/build/verification_key.json",
-"circuits:prove": "npx snarkjs groth16 prove circuits/payroll/build/payroll_final.zkey circuits/payroll/build/witness.wtns circuits/payroll/build/proof.json circuits/payroll/build/public.json",
-"circuits:verify": "npx snarkjs groth16 verify circuits/payroll/build/verification_key.json circuits/payroll/build/public.json circuits/payroll/build/proof.json",
-"circuits:fixtures": "node circuits/payroll/scripts/export-fixtures.js",
-"circuits:all": "yarn circuits:inputs && yarn circuits:witness && yarn circuits:prove && yarn circuits:verify && yarn circuits:fixtures",
-"circuits:rebuild": "yarn circuits:clean && yarn circuits:compile && yarn circuits:setup && yarn circuits:all"
-```
-
-### Contract scripts
-
-```json
-"contracts:clean": "cd contracts && cargo clean",
-"contracts:zk-verifier:test": "cd contracts && cargo test -p zk-verifier -- --nocapture",
-"contracts:zk-payroll:test": "cd contracts && cargo test -p zk-payroll -- --nocapture",
-"contracts:zk-payroll:check": "cd contracts && cargo check -p zk-payroll"
-```
-
-## Common workflows
-
-### When the circuit changes
-
-Run:
-
-```bash
-yarn circuits:rebuild
-```
-
-This performs:
-
-1. Clean build artifacts
-2. Compile circuit
-3. Download ptau if missing
-4. Run Groth16 setup
-5. Export verification key
-6. Generate inputs
-7. Generate witness
-8. Generate proof
-9. Verify proof
-10. Export Rust fixtures
-
-### When only payroll input data changes
-
-Run:
-
-```bash
-yarn circuits:all
-```
-
-This performs:
-
-1. Generate commitments
-2. Generate witness
-3. Generate proof
-4. Verify proof
-5. Export Rust fixtures
-
-### Run verifier tests
-
-```bash
-yarn contracts:zk-verifier:test
-```
-
-### Run payroll tests
-
-```bash
-yarn contracts:zk-payroll:test
-```
-
-### Check payroll contract
-
-```bash
-yarn contracts:zk-payroll:check
-```
-
-## Circuit files
-
-Current circuit location:
-
-```text
-circuits/payroll/circuits/payroll.circom
-```
-
-Current input fixture:
-
-```text
-circuits/payroll/inputs/xlm.json
-```
-
-Current scripts:
-
-```text
-circuits/payroll/scripts/generate-inputs.js
-circuits/payroll/scripts/export-fixtures.js
-```
-
-Generated artifacts:
-
-```text
-circuits/payroll/build/payroll.r1cs
-circuits/payroll/build/payroll.sym
-circuits/payroll/build/payroll_js/payroll.wasm
-circuits/payroll/build/witness.wtns
-circuits/payroll/build/payroll_0000.zkey
-circuits/payroll/build/payroll_final.zkey
-circuits/payroll/build/verification_key.json
-circuits/payroll/build/proof.json
-circuits/payroll/build/public.json
-```
-
-The ptau file is stored at:
-
-```text
-circuits/payroll/ptau/powersOfTau28_hez_final_15.ptau
-```
-
-## Fixture export
-
-The fixture export script reads:
-
-```text
-proof.json
-public.json
-verification_key.json
-```
-
-and generates:
-
-```text
-contracts/zk-verifier/src/fixtures.rs
-contracts/zk-payroll/src/fixtures.rs
-```
-
-The verifier fixtures contain:
-
-```text
-PROOF_A
-PROOF_B
-PROOF_C
-SIGNALS
-VK_ALPHA
-VK_BETA
-VK_GAMMA
-VK_DELTA
-VK_IC
-```
-
-The payroll fixtures contain:
-
-```text
-REAL_PROOF_A
-REAL_PROOF_B
-REAL_PROOF_C
-REAL_SIGNALS
-REAL_VK_ALPHA
-REAL_VK_BETA
-REAL_VK_GAMMA
-REAL_VK_DELTA
-REAL_VK_IC
-```
-
-## Current proof status
-
-The current proof verifies locally with:
-
-```bash
-yarn circuits:verify
-```
-
-Expected output:
-
-```text
-snarkJS: OK!
-```
-
-The same proof verifies inside Soroban through:
-
-```bash
-yarn contracts:zk-verifier:test
-```
-
-and through the payroll contract with:
-
-```bash
-yarn contracts:zk-payroll:test
-```
-
-## Design decisions already made
-
-### No Noir in the proof path
-
-Noir and Barretenberg were removed because the Soroban verifier expects Groth16 BN254 artifacts.
-
-### One payroll run can have many batches
-
-This lets the system scale to thousands of payees.
-
-### One batch can contain mixed XLM and USDC
-
-Each payee has their own `token_type`.
-
-### Frontend is not trusted for totals
-
-The contract parses totals from proof public inputs and compares them against the submitted payments.
-
-### Submit and execute are separate
-
-`submit_batch` verifies and stores payroll data.
-
-`execute_batch` transfers tokens.
-
-This improves safety, retry behavior, and auditability.
-
-### Replay protection is required
-
-The contract stores processed proof hashes and rejects duplicate proof submissions.
-
-### Payroll run summary is required
-
-Auditors need to see the status of a full payroll run, not just isolated batches.
-
-## Planned architectural improvements
-
-### Batch Merkle root
-
-Current state:
-
-```text
-commitment_root is passed to the contract
-```
-
-Planned state:
-
-```text
-circuit computes batch_root from commitments
-batch_root is a public input
-contract checks commitment_root against proof public input
-```
-
-This prevents the frontend from lying about the root.
-
-### Employee or freelancer claim verification
-
-A payee should later be able to prove:
-
-```text
-I was included in payroll run X
-I was paid amount Y
-I was paid in token Z
-My wallet was the intended recipient
-```
-
-without seeing anyone else's payroll.
-
-This can begin as an off chain helper using:
-
-```text
-commitment
-Merkle proof
-batch root
-```
-
-### Auditor API
-
-Planned getters:
-
-```text
-get_payroll_run_summary
-get_payroll_record
-get_batch_count
-get_batch_ids_for_run
-```
-
-### Database driven proof generation
-
-The current `xlm.json` file is a development fixture.
-
-Production flow should be:
-
-```text
-Supabase and Drizzle
-  payees
-  payroll_runs
-  payroll_items
-      ↓
-generate circuit input
-      ↓
-generate witness
-      ↓
-generate proof
-      ↓
-submit batch
-```
-
-### Events
-
-Events are postponed for now.
-
-They will become useful later for:
-
-```text
-dashboard updates
-auditor notifications
-indexing payroll history
-showing completed payrolls without scanning storage
-```
-
-## Next recommended step
-
-The next protocol improvement should be Batch Merkle Root.
-
-Recommended plan:
-
-1. Change dev circuit size from 10 to 8 because 8 is a power of two
-2. Later production size becomes 128
-3. Add Poseidon Merkle tree inside the circuit
-4. Compute `batch_root_public`
-5. Add `batch_root_public` to public inputs
-6. Update `generate-inputs.js`
-7. Update `export-fixtures.js`
-8. Update `contract.rs` to compare `commitment_root` with proof public input
-9. Regenerate proof
-10. Run verifier and payroll tests
-
-## Current milestone summary
-
-The project currently has a real end to end private payroll proof flow:
-
-```text
-Circom circuit
-  ↓
-Groth16 proof
-  ↓
-snarkjs verification
-  ↓
-Rust fixture export
-  ↓
-Soroban BN254 verifier
-  ↓
-ZkPayroll submit batch
-  ↓
-ZkPayroll execute batch
-  ↓
-XLM and USDC transfers
-  ↓
-Auditor friendly payroll run summary
-```
-
-All current core tests are passing.
+Powered by Stellar, Soroban, Zero Knowledge Proofs, and privacy first payroll architecture.
