@@ -31,7 +31,10 @@
     "contracts:zetapay-payroll:test": "cd contracts && cargo test -p zetapay-payroll -- --nocapture",
     "contracts:zetapay-payroll:check": "cd contracts && cargo check -p zetapay-payroll",
     "contracts:test": "yarn contracts:zetapay-verifier:test && yarn contracts:zetapay-payroll:test",
-    "zetapay:test": "yarn circuits:rebuild && yarn contracts:test"
+    "zetapay:test": "yarn circuits:rebuild && yarn contracts:test",
+    "contracts:build": "cd contracts && stellar contract build",
+    "contracts:deploy:verifier": "stellar contract deploy --wasm contracts/target/wasm32v1-none/release/zetapay_verifier.wasm --source-account zetapay-deployer --network testnet --alias zetapay-verifier",
+    "contracts:deploy:payroll": "stellar contract deploy --wasm contracts/target/wasm32v1-none/release/zetapay_payroll.wasm --source-account zetapay-deployer --network testnet --alias zetapay-payroll"
   },
   "dependencies": {
     "@stellar/freighter-api": "^6.0.1",
