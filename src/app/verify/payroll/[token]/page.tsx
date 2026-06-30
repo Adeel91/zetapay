@@ -63,7 +63,7 @@ export default function PublicPayrollVerificationPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-12">
-        <div className="mx-auto flex max-w-5xl justify-center">
+        <div className="mx-auto mt-16 flex max-w-5xl justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
         </div>
       </main>
@@ -73,7 +73,7 @@ export default function PublicPayrollVerificationPage() {
   if (error || !data) {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-12">
-        <div className="mx-auto max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <div className="mx-auto mt-16 max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <FileWarning className="mx-auto h-10 w-10 text-amber-600" />
           <h1 className="mt-4 text-2xl font-bold text-slate-900">Verification failed</h1>
           <p className="mt-2 text-sm text-slate-500">{error || 'Invalid verification link'}</p>
@@ -84,7 +84,7 @@ export default function PublicPayrollVerificationPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-12">
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="mx-auto mt-16 max-w-6xl space-y-6">
         <Card className="overflow-hidden border-0 bg-white shadow-xl shadow-slate-200/50">
           <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 px-6 py-8 text-white">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm text-emerald-50">

@@ -9,7 +9,7 @@ import { Server as StellarRpcServer } from '@stellar/stellar-sdk/rpc';
 import { zetapayConfig, validateConfig } from './config';
 import { loadSorobanVerificationKey } from './verification-key';
 
-const CONTRACT_FEE = '10000000';
+const CONTRACT_FEE = '100000';
 const TX_TIMEOUT_SECONDS = 300;
 
 export type SorobanPayrollPayment = {
@@ -134,7 +134,7 @@ function addTimeoutToBuiltTransaction(rawXdr: string) {
   const maxTime = Math.floor(Date.now() / 1000) + TX_TIMEOUT_SECONDS;
 
   const builder = TransactionBuilder.cloneFrom(transaction, {
-    fee: transaction.fee || CONTRACT_FEE,
+    fee: CONTRACT_FEE,
     networkPassphrase: networkPassphrase(),
     timebounds: {
       minTime: 0,
@@ -190,11 +190,9 @@ function writeJsonTempFile(tempDir: string, name: string, value: unknown) {
 
 function normalizeReturnValue(value: unknown) {
   if (value === null || value === undefined) return null;
-
   if (typeof value === 'bigint') return Number(value);
   if (typeof value === 'number') return value;
   if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value);
-
   return null;
 }
 
@@ -241,10 +239,10 @@ export async function buildInitializePayrollXdr(input: BuildInitializePayrollInp
   }
 }
 
-export async function buildSubmitPayrollBatchXdr(input: SubmitPayrollBatchInput) {
+export async function buildSubmitAndExecutePayrollBatchXdr(input: SubmitPayrollBatchInput) {
   validateConfig();
 
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zetapay-submit-xdr-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zetapay-submit-execute-xdr-'));
 
   try {
     const paymentsPath = writeJsonTempFile(tempDir, 'payments.json', input.payments);
@@ -264,7 +262,7 @@ export async function buildSubmitPayrollBatchXdr(input: SubmitPayrollBatchInput)
       '--fee',
       CONTRACT_FEE,
       '--',
-      'submit_batch',
+      'submit_and_execute_batch',
       '--employer',
       input.employer,
       '--payments-file-path',
@@ -289,30 +287,6 @@ export async function buildSubmitPayrollBatchXdr(input: SubmitPayrollBatchInput)
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
-}
-
-export async function buildExecutePayrollBatchXdr(input: { employer: string; batchId: number }) {
-  validateConfig();
-
-  return await runStellarBuildOnly([
-    'contract',
-    'invoke',
-    '--build-only',
-    '--id',
-    zetapayConfig.payrollContractId,
-    '--source-account',
-    input.employer,
-    '--network',
-    network(),
-    '--fee',
-    CONTRACT_FEE,
-    '--',
-    'execute_batch',
-    '--employer',
-    input.employer,
-    '--batch_id',
-    String(input.batchId),
-  ]);
 }
 
 export async function sendSignedXdr(signedXdr: string) {
@@ -366,31 +340,6 @@ export async function sendSignedXdr(signedXdr: string) {
   }
 
   throw new Error(`Transaction was not confirmed: ${txHash}`);
-}
-
-export function isPayrollInitialized(employer: string) {
-  validateConfig();
-
-  try {
-    runStellar([
-      'contract',
-      'invoke',
-      '--id',
-      zetapayConfig.payrollContractId,
-      '--source-account',
-      employer,
-      '--network',
-      network(),
-      '--',
-      'get_batch_count',
-      '--employer',
-      employer,
-    ]);
-
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export function toSorobanPayrollPayment(input: {

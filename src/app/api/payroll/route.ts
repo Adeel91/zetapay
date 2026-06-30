@@ -4,9 +4,8 @@ import crypto from 'crypto';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 
 import {
-  buildExecutePayrollBatchXdr,
   buildInitializePayrollXdr,
-  buildSubmitPayrollBatchXdr,
+  buildSubmitAndExecutePayrollBatchXdr,
   sendSignedXdr,
   toSorobanPayrollPayment,
   type SorobanPayrollPayment,
@@ -27,7 +26,7 @@ import { encryptPayload, generateToken, hashToken } from '@/lib/security/tokenVa
 export const runtime = 'nodejs';
 
 type PayrollCreateRequest = {
-  action?: 'prepare' | 'submitInitialize' | 'submitSigned' | 'executeSigned';
+  action?: 'prepare' | 'submitInitialize' | 'submitSigned';
   walletAddress?: string;
   periodStart?: string;
   periodEnd?: string;
@@ -220,11 +219,7 @@ export async function POST(request: Request) {
     }
 
     if (action === 'submitSigned') {
-      return await submitSignedPayroll(body, enterprise);
-    }
-
-    if (action === 'executeSigned') {
-      return await executeSignedPayroll(request, body, enterprise);
+      return await submitSignedPayroll(request, body, enterprise);
     }
 
     return NextResponse.json({ error: 'Unsupported payroll action' }, { status: 400 });
@@ -345,7 +340,7 @@ async function preparePayroll(
       });
 
   const submitXdr = initialized
-    ? await buildSubmitPayrollBatchXdr({
+    ? await buildSubmitAndExecutePayrollBatchXdr({
         employer: enterprise.walletAddress,
         ...sorobanPayload,
       })
@@ -491,7 +486,7 @@ async function submitInitializePayroll(
   const initializeResult = await sendSignedXdr(body.signedXdr);
   const payload = getStoredSorobanPayload(payrollRun.metadata);
 
-  const submitXdr = await buildSubmitPayrollBatchXdr({
+  const submitXdr = await buildSubmitAndExecutePayrollBatchXdr({
     employer: enterprise.walletAddress,
     ...payload,
   });
@@ -524,6 +519,7 @@ async function submitInitializePayroll(
 }
 
 async function submitSignedPayroll(
+  request: Request,
   body: PayrollCreateRequest,
   enterprise: typeof enterprises.$inferSelect
 ) {
@@ -532,7 +528,7 @@ async function submitSignedPayroll(
   }
 
   if (!body.signedXdr) {
-    return NextResponse.json({ error: 'Signed submit XDR is required' }, { status: 400 });
+    return NextResponse.json({ error: 'Signed payroll XDR is required' }, { status: 400 });
   }
 
   const [payrollRun] = await db
@@ -550,71 +546,10 @@ async function submitSignedPayroll(
   const contractBatchId = submitResult.returnValue;
 
   if (!contractBatchId) {
-    throw new Error('Soroban submit_batch did not return a batch id.');
+    throw new Error('Soroban submit_and_execute_batch did not return a batch id.');
   }
 
-  const executeXdr = await buildExecutePayrollBatchXdr({
-    employer: enterprise.walletAddress,
-    batchId: contractBatchId,
-  });
-
-  await db
-    .update(payrollRuns)
-    .set({
-      contractBatchId,
-      txHash: submitResult.txHash,
-      status: 'processing',
-      processedBy: enterprise.walletAddress,
-      processedAt: new Date(),
-      metadata: mergeMetadata(payrollRun.metadata, {
-        soroban: {
-          stage: 'submitted',
-          contractBatchId,
-          submitTxHash: submitResult.txHash,
-        },
-      }),
-      updatedAt: new Date(),
-    })
-    .where(eq(payrollRuns.id, payrollRun.id))
-    .execute();
-
-  return NextResponse.json({
-    success: true,
-    step: 'submitted',
-    payrollRunId: payrollRun.id,
-    employer: enterprise.walletAddress,
-    contractBatchId,
-    submitTxHash: submitResult.txHash,
-    executeXdr,
-  });
-}
-
-async function executeSignedPayroll(
-  request: Request,
-  body: PayrollCreateRequest,
-  enterprise: typeof enterprises.$inferSelect
-) {
-  if (!body.payrollRunId) {
-    return NextResponse.json({ error: 'Payroll run id is required' }, { status: 400 });
-  }
-
-  if (!body.signedXdr) {
-    return NextResponse.json({ error: 'Signed execute XDR is required' }, { status: 400 });
-  }
-
-  const [payrollRun] = await db
-    .select()
-    .from(payrollRuns)
-    .where(and(eq(payrollRuns.id, body.payrollRunId), eq(payrollRuns.enterpriseId, enterprise.id)))
-    .limit(1)
-    .execute();
-
-  if (!payrollRun) {
-    return NextResponse.json({ error: 'Payroll run not found' }, { status: 404 });
-  }
-
-  const executeResult = await sendSignedXdr(body.signedXdr);
-  const chainTxHash = executeResult.txHash || payrollRun.txHash || null;
+  const chainTxHash = submitResult.txHash;
   const baseUrl = getBaseUrl(request);
 
   const publicVerificationToken = generateToken();
@@ -629,6 +564,7 @@ async function executeSignedPayroll(
   const [updatedPayrollRun] = await db
     .update(payrollRuns)
     .set({
+      contractBatchId,
       txHash: chainTxHash,
       publicVerificationTokenHash,
       publicVerificationPayload,
@@ -638,10 +574,9 @@ async function executeSignedPayroll(
       processedAt: new Date(),
       metadata: mergeMetadata(payrollRun.metadata, {
         soroban: {
-          stage: 'executed',
-          contractBatchId: payrollRun.contractBatchId,
-          submitTxHash: payrollRun.txHash,
-          executeTxHash: executeResult.txHash,
+          stage: 'submitted_and_executed',
+          contractBatchId,
+          submitAndExecuteTxHash: submitResult.txHash,
         },
       }),
       updatedAt: new Date(),
@@ -714,10 +649,10 @@ async function executeSignedPayroll(
     batchRoot: updatedPayrollRun.batchRoot,
     payrollRunHash: updatedPayrollRun.payrollRunHash,
     proofHash: updatedPayrollRun.proofHash,
-    contractBatchId: updatedPayrollRun.contractBatchId,
+    contractBatchId,
     txHash: chainTxHash,
-    submitTxHash: payrollRun.txHash,
-    executeTxHash: executeResult.txHash,
+    submitTxHash: submitResult.txHash,
+    executeTxHash: submitResult.txHash,
     publicVerificationUrl: `${baseUrl}/verify/payroll/${publicVerificationToken}`,
     publicVerificationToken,
     employeeVerificationLinks,

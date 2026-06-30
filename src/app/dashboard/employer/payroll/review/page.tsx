@@ -41,16 +41,6 @@ type InitializePayrollResult = {
   submitXdr: string;
 };
 
-type SubmitPayrollResult = {
-  success: boolean;
-  step: 'submitted';
-  payrollRunId: number;
-  employer: string;
-  contractBatchId: number;
-  submitTxHash?: string | null;
-  executeXdr: string;
-};
-
 type ExecutePayrollResult = {
   success: boolean;
   step: 'executed';
@@ -88,8 +78,7 @@ const progressSteps = [
   'Preparing private payroll commitments',
   'Generating Groth16 proof',
   'Initializing employer contract state',
-  'Signing proof submission with Freighter',
-  'Signing payroll execution with Freighter',
+  'Signing payroll transaction with Freighter',
   'Saving audit and verification records',
 ];
 
@@ -212,7 +201,7 @@ export default function PayrollReviewPage() {
       }
 
       if (!submitXdr) {
-        throw new Error('Submit transaction was not prepared.');
+        throw new Error('Payroll transaction was not prepared.');
       }
 
       setProgressIndex(3);
@@ -230,24 +219,7 @@ export default function PayrollReviewPage() {
         }),
       });
 
-      const submitted = await readJsonOrThrow<SubmitPayrollResult>(submitResponse);
-
-      setProgressIndex(4);
-
-      const signedExecuteXdr = await signWithFreighter(submitted.executeXdr, walletAddress);
-
-      const executeResponse = await fetch('/api/payroll', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'executeSigned',
-          walletAddress,
-          payrollRunId: submitted.payrollRunId,
-          signedXdr: signedExecuteXdr,
-        }),
-      });
-
-      const executed = await readJsonOrThrow<ExecutePayrollResult>(executeResponse);
+      const executed = await readJsonOrThrow<ExecutePayrollResult>(submitResponse);
 
       setProgressIndex(progressSteps.length - 1);
 
@@ -358,7 +330,7 @@ function PayrollProgressOverlay({ currentStep }: { currentStep: number }) {
             <div>
               <p className="text-sm font-semibold text-emerald-800">{progressSteps[currentStep]}</p>
               <p className="text-xs text-emerald-700/70">
-                Freighter will ask you to approve the Stellar transactions.
+                Freighter will ask you to approve the Stellar transaction.
               </p>
             </div>
           </div>
