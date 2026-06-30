@@ -148,6 +148,7 @@ fn submit_batch_verifies_real_groth16_proof_and_stores_record() {
     let commitment_root = make_commitment_root(&env);
 
     let submit = payroll.try_submit_batch(
+        &employer,
         &payments,
         &proof,
         &public_inputs,
@@ -166,9 +167,9 @@ fn submit_batch_verifies_real_groth16_proof_and_stores_record() {
 
     let batch_id = inner.unwrap();
     assert_eq!(batch_id, 1);
-    assert_eq!(payroll.get_batch_count(), 1);
+    assert_eq!(payroll.get_batch_count(&employer), 1);
 
-    let record = payroll.get_payroll_record(&batch_id);
+    let record = payroll.get_payroll_record(&employer, &batch_id);
 
     assert_eq!(record.batch.payment_count, 5);
     assert_eq!(record.batch.total_amount, 36000);
@@ -213,6 +214,7 @@ fn execute_batch_transfers_xlm_and_usdc_once() {
     let commitment_root = make_commitment_root(&env);
 
     let submit = payroll.try_submit_batch(
+        &employer,
         &payments,
         &proof,
         &public_inputs,
@@ -231,7 +233,7 @@ fn execute_batch_transfers_xlm_and_usdc_once() {
 
     let batch_id = inner.unwrap();
 
-    let execute = payroll.try_execute_batch(&batch_id);
+    let execute = payroll.try_execute_batch(&employer, &batch_id);
     assert!(execute.is_ok());
     assert!(execute.unwrap().is_ok());
 
@@ -244,10 +246,10 @@ fn execute_batch_transfers_xlm_and_usdc_once() {
     assert_eq!(xlm_client.balance(&first_xlm_recipient), 5000);
     assert_eq!(usdc_client.balance(&first_usdc_recipient), 3000);
 
-    let record = payroll.get_payroll_record(&batch_id);
+    let record = payroll.get_payroll_record(&employer, &batch_id);
     assert!(record.batch.is_executed);
 
-    let second_execute = payroll.try_execute_batch(&batch_id);
+    let second_execute = payroll.try_execute_batch(&employer, &batch_id);
     assert!(second_execute.is_err());
 }
 
@@ -278,6 +280,7 @@ fn submit_batch_rejects_duplicate_proof() {
     let commitment_root = make_commitment_root(&env);
 
     let first_submit = payroll.try_submit_batch(
+        &employer,
         &payments,
         &proof,
         &public_inputs,
@@ -293,6 +296,7 @@ fn submit_batch_rejects_duplicate_proof() {
     assert!(first_submit.unwrap().is_ok());
 
     let second_submit = payroll.try_submit_batch(
+        &employer,
         &payments,
         &proof,
         &public_inputs,
@@ -305,7 +309,7 @@ fn submit_batch_rejects_duplicate_proof() {
     );
 
     assert!(second_submit.is_err());
-    assert_eq!(payroll.get_batch_count(), 1);
+    assert_eq!(payroll.get_batch_count(&employer), 1);
 }
 
 #[test]
@@ -340,6 +344,7 @@ fn submit_batch_rejects_payment_totals_that_do_not_match_proof() {
     let commitment_root = make_commitment_root(&env);
 
     let submit = payroll.try_submit_batch(
+        &employer,
         &payments,
         &proof,
         &public_inputs,
@@ -352,7 +357,7 @@ fn submit_batch_rejects_payment_totals_that_do_not_match_proof() {
     );
 
     assert!(submit.is_err());
-    assert_eq!(payroll.get_batch_count(), 0);
+    assert_eq!(payroll.get_batch_count(&employer), 0);
 }
 
 #[test]
@@ -374,7 +379,7 @@ fn execute_batch_rejects_unknown_batch() {
     assert!(init.is_ok());
     assert!(init.unwrap().is_ok());
 
-    let execute = payroll.try_execute_batch(&999u64);
+    let execute = payroll.try_execute_batch(&employer, &999u64);
 
     assert!(execute.is_err());
 }
@@ -412,6 +417,7 @@ fn payroll_run_summary_tracks_submission_and_execution() {
     let commitment_root = make_commitment_root(&env);
 
     let submit = payroll.try_submit_batch(
+        &employer,
         &payments,
         &proof,
         &public_inputs,
@@ -427,7 +433,9 @@ fn payroll_run_summary_tracks_submission_and_execution() {
 
     let batch_id = submit.unwrap().unwrap();
 
-    let summary_after_submit = payroll.get_payroll_run_summary(&payroll_run_hash).unwrap();
+    let summary_after_submit = payroll
+        .get_payroll_run_summary(&employer, &payroll_run_hash)
+        .unwrap();
 
     assert_eq!(summary_after_submit.submitted_batches, 1);
     assert_eq!(summary_after_submit.executed_batches, 0);
@@ -437,11 +445,13 @@ fn payroll_run_summary_tracks_submission_and_execution() {
     assert!(summary_after_submit.is_complete);
     assert!(!summary_after_submit.is_fully_executed);
 
-    let execute = payroll.try_execute_batch(&batch_id);
+    let execute = payroll.try_execute_batch(&employer, &batch_id);
     assert!(execute.is_ok());
     assert!(execute.unwrap().is_ok());
 
-    let summary_after_execute = payroll.get_payroll_run_summary(&payroll_run_hash).unwrap();
+    let summary_after_execute = payroll
+        .get_payroll_run_summary(&employer, &payroll_run_hash)
+        .unwrap();
 
     assert_eq!(summary_after_execute.submitted_batches, 1);
     assert_eq!(summary_after_execute.executed_batches, 1);
@@ -477,6 +487,7 @@ fn submit_batch_rejects_wrong_commitment_root() {
     let wrong_commitment_root = Bn254Fr::from_bytes(BytesN::from_array(&env, &[1u8; 32]));
 
     let submit = payroll.try_submit_batch(
+        &employer,
         &payments,
         &proof,
         &public_inputs,
@@ -489,5 +500,5 @@ fn submit_batch_rejects_wrong_commitment_root() {
     );
 
     assert!(submit.is_err());
-    assert_eq!(payroll.get_batch_count(), 0);
+    assert_eq!(payroll.get_batch_count(&employer), 0);
 }

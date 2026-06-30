@@ -91,7 +91,7 @@
                         "symbol": "delta"
                       },
                       "val": {
-                        "bytes": "1ff551b42a732daad80b0b021e378e4491b6d9f44b0904fc39cf8591ceafccb82cfc4d046b9fd787ce8760f829cb765526e89a7d6e55be4d8d562bf984837ba11f78f3b738ed0da26ae7b8ea0cec3bb427ba0f7184c3204faf2dec9f4959fdb10d27601810ff105d829b34a6847a7de66b8e794ef0865b91ef8bc8c7a7e4a298"
+                        "bytes": "1d3734f9988c481d1818d865cb1ce0b8e62be747f42ebc5d75e28302f6c93d80010abe8f85bdc8b1fc58bfb6c2f47071513e766338064b35e9177c7ff9128ab0106cb54f22412bfe674ddaadf32eef9b9bbabac937b8d9cd94ab9a4e26fcb3b92a69af997a1d2b3ad8ddd404938a8fde641e3a71ee1b7bbb09d6340efbc6c8a3"
                       }
                     },
                     {
@@ -343,6 +343,9 @@
                         "vec": [
                           {
                             "symbol": "BatchCounter"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                           }
                         ]
                       },
@@ -354,12 +357,15 @@
                       "key": {
                         "vec": [
                           {
-                            "symbol": "Employer"
+                            "symbol": "EmployerConfig"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                           }
                         ]
                       },
                       "val": {
-                        "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                        "bool": true
                       }
                     },
                     {
@@ -367,6 +373,9 @@
                         "vec": [
                           {
                             "symbol": "UsdcToken"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                           }
                         ]
                       },
@@ -379,6 +388,9 @@
                         "vec": [
                           {
                             "symbol": "VerificationKey"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                           }
                         ]
                       },
@@ -405,7 +417,7 @@
                               "symbol": "delta"
                             },
                             "val": {
-                              "bytes": "1ff551b42a732daad80b0b021e378e4491b6d9f44b0904fc39cf8591ceafccb82cfc4d046b9fd787ce8760f829cb765526e89a7d6e55be4d8d562bf984837ba11f78f3b738ed0da26ae7b8ea0cec3bb427ba0f7184c3204faf2dec9f4959fdb10d27601810ff105d829b34a6847a7de66b8e794ef0865b91ef8bc8c7a7e4a298"
+                              "bytes": "1d3734f9988c481d1818d865cb1ce0b8e62be747f42ebc5d75e28302f6c93d80010abe8f85bdc8b1fc58bfb6c2f47071513e766338064b35e9177c7ff9128ab0106cb54f22412bfe674ddaadf32eef9b9bbabac937b8d9cd94ab9a4e26fcb3b92a69af997a1d2b3ad8ddd404938a8fde641e3a71ee1b7bbb09d6340efbc6c8a3"
                             }
                           },
                           {
@@ -499,6 +511,9 @@
                         "vec": [
                           {
                             "symbol": "Verifier"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                           }
                         ]
                       },
@@ -511,6 +526,9 @@
                         "vec": [
                           {
                             "symbol": "XlmToken"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                           }
                         ]
                       },

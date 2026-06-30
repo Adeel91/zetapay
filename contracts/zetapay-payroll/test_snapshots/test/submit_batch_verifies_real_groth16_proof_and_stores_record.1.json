@@ -91,7 +91,7 @@
                         "symbol": "delta"
                       },
                       "val": {
-                        "bytes": "1ff551b42a732daad80b0b021e378e4491b6d9f44b0904fc39cf8591ceafccb82cfc4d046b9fd787ce8760f829cb765526e89a7d6e55be4d8d562bf984837ba11f78f3b738ed0da26ae7b8ea0cec3bb427ba0f7184c3204faf2dec9f4959fdb10d27601810ff105d829b34a6847a7de66b8e794ef0865b91ef8bc8c7a7e4a298"
+                        "bytes": "1d3734f9988c481d1818d865cb1ce0b8e62be747f42ebc5d75e28302f6c93d80010abe8f85bdc8b1fc58bfb6c2f47071513e766338064b35e9177c7ff9128ab0106cb54f22412bfe674ddaadf32eef9b9bbabac937b8d9cd94ab9a4e26fcb3b92a69af997a1d2b3ad8ddd404938a8fde641e3a71ee1b7bbb09d6340efbc6c8a3"
                       }
                     },
                     {
@@ -195,6 +195,9 @@
               "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
               "function_name": "submit_batch",
               "args": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                },
                 {
                   "vec": [
                     {
@@ -466,7 +469,7 @@
                         "symbol": "a"
                       },
                       "val": {
-                        "bytes": "1e20f6774e4037e2b3637edf2f8c31093d26b14ec55ae16cd50e59f2914654960388fb60ac89e6fcd61818a253ae3abadcbd8f7c8e33fb5e9f7aa29a9a166dec"
+                        "bytes": "0582674f6864b3a373d59917c8df6c5bcccc4cff14fff55afec04527b14bdf7116bce2789b97406743263124a9a7d48d0500382df9fc3ee07aa4fd7daba92914"
                       }
                     },
                     {
@@ -474,7 +477,7 @@
                         "symbol": "b"
                       },
                       "val": {
-                        "bytes": "01f21b77c9254e1f7de8807e2026dca8f0437a6e6751f57c2901fa09bb4aa0000528a9642a51a336abc3c1e3d5ebb95d6633c99936c8a4f142e4cec10f6392b428af67ab42e1fbf5655290a2bdd4ce9a58d27f661bf534e5b155ec2dbe3eb96809cae1dc2f1c16727c84707a9ea38d81aa4bcecc55b5327579ec8ebb935045d5"
+                        "bytes": "15d24663e78eec639bdba0272fcc65fc31bdc1e8b92b3ca69b09e8c7a988976c10caa57fa3195d458fc204dec1b61244cd04a3e56dc9c780b609d9340ea938f80b260cfc1a3c2087f3ba69d01bff5fd20abbbc7270b0d0d4f7a171afb07fd9d82de090a0de65242b71ea6d96097e72e6fd27f02af64d1f62741995f78b150eee"
                       }
                     },
                     {
@@ -482,7 +485,7 @@
                         "symbol": "c"
                       },
                       "val": {
-                        "bytes": "06da1530e1f63509df0816afafead0b924f9aa1911bb18688f4c9d7704aa5d2d02eb5ffe9277505aa44a3b792ff9cd9ff73de8cb600be53552b0b82e6a6df95e"
+                        "bytes": "2fa5b526225ab16630de4a80297f19ce94543ef4abe767b09361ed4dcffa92022024bcdcef59e4e7155102a3ceb32054c07cda8f8698d82e4e1a7f83720d385d"
                       }
                     }
                   ]
@@ -748,6 +751,9 @@
                 "vec": [
                   {
                     "symbol": "PayrollBatch"
+                  },
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                   },
                   {
                     "u64": "1"
@@ -1144,6 +1150,9 @@
                     "symbol": "PayrollRun"
                   },
                   {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                  },
+                  {
                     "bytes": "0707070707070707070707070707070707070707070707070707070707070707"
                   }
                 ]
@@ -1252,6 +1261,9 @@
                     "symbol": "ProcessedProof"
                   },
                   {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                  },
+                  {
                     "bytes": "bb7d9d2ab0df872e6a1db239f61ef7b1f66d2c64ee260c1da3cd6eed4a0cb71b"
                   }
                 ]
@@ -1286,6 +1298,9 @@
                         "vec": [
                           {
                             "symbol": "BatchCounter"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                           }
                         ]
                       },
@@ -1297,12 +1312,15 @@
                       "key": {
                         "vec": [
                           {
-                            "symbol": "Employer"
+                            "symbol": "EmployerConfig"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                           }
                         ]
                       },
                       "val": {
-                        "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                        "bool": true
                       }
                     },
                     {
@@ -1310,6 +1328,9 @@
                         "vec": [
                           {
                             "symbol": "UsdcToken"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                           }
                         ]
                       },
@@ -1322,6 +1343,9 @@
                         "vec": [
                           {
                             "symbol": "VerificationKey"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                           }
                         ]
                       },
@@ -1348,7 +1372,7 @@
                               "symbol": "delta"
                             },
                             "val": {
-                              "bytes": "1ff551b42a732daad80b0b021e378e4491b6d9f44b0904fc39cf8591ceafccb82cfc4d046b9fd787ce8760f829cb765526e89a7d6e55be4d8d562bf984837ba11f78f3b738ed0da26ae7b8ea0cec3bb427ba0f7184c3204faf2dec9f4959fdb10d27601810ff105d829b34a6847a7de66b8e794ef0865b91ef8bc8c7a7e4a298"
+                              "bytes": "1d3734f9988c481d1818d865cb1ce0b8e62be747f42ebc5d75e28302f6c93d80010abe8f85bdc8b1fc58bfb6c2f47071513e766338064b35e9177c7ff9128ab0106cb54f22412bfe674ddaadf32eef9b9bbabac937b8d9cd94ab9a4e26fcb3b92a69af997a1d2b3ad8ddd404938a8fde641e3a71ee1b7bbb09d6340efbc6c8a3"
                             }
                           },
                           {
@@ -1442,6 +1466,9 @@
                         "vec": [
                           {
                             "symbol": "Verifier"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                           }
                         ]
                       },
@@ -1454,6 +1481,9 @@
                         "vec": [
                           {
                             "symbol": "XlmToken"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                           }
                         ]
                       },

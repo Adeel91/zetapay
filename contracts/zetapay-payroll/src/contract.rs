@@ -27,22 +27,23 @@ impl ZetaPayPayroll {
     ) -> Result<(), PayrollError> {
         employer.require_auth();
 
-        if Storage::has_employer(&env) {
+        if Storage::has_employer(&env, &employer) {
             return Err(PayrollError::AlreadyInitialized);
         }
 
         Storage::set_employer(&env, &employer);
-        Storage::set_verifier(&env, &verifier);
-        Storage::set_xlm_token(&env, &xlm_token);
-        Storage::set_usdc_token(&env, &usdc_token);
-        Storage::set_verification_key(&env, &vk);
-        Storage::set_batch_counter(&env, &0);
+        Storage::set_verifier(&env, &employer, &verifier);
+        Storage::set_xlm_token(&env, &employer, &xlm_token);
+        Storage::set_usdc_token(&env, &employer, &usdc_token);
+        Storage::set_verification_key(&env, &employer, &vk);
+        Storage::set_batch_counter(&env, &employer, &0);
 
         Ok(())
     }
 
     pub fn submit_batch(
         env: Env,
+        employer: Address,
         payments: Vec<PayrollPayment>,
         proof: Proof,
         public_inputs: Vec<Bn254Fr>,
@@ -53,8 +54,11 @@ impl ZetaPayPayroll {
         batch_count: u32,
         commitment_root: Bn254Fr,
     ) -> Result<u64, PayrollError> {
-        let employer = Storage::get_employer(&env)?;
         employer.require_auth();
+
+        if !Storage::has_employer(&env, &employer) {
+            return Err(PayrollError::NotInitialized);
+        }
 
         if payments.is_empty() {
             return Err(PayrollError::InvalidPayeeCount);
@@ -62,12 +66,12 @@ impl ZetaPayPayroll {
 
         let proof_hash = Self::proof_hash(&env, &public_inputs, &payroll_run_hash);
 
-        if Storage::is_proof_processed(&env, &proof_hash) {
+        if Storage::is_proof_processed(&env, &employer, &proof_hash) {
             return Err(PayrollError::InvalidProof);
         }
 
-        let verifier = Storage::get_verifier(&env)?;
-        let vk = Storage::get_verification_key(&env)?;
+        let verifier = Storage::get_verifier(&env, &employer)?;
+        let vk = Storage::get_verification_key(&env, &employer)?;
         let verifier_client = ZetaPayVerifierClient::new(&env, &verifier);
 
         let verified = verifier_client
@@ -99,7 +103,7 @@ impl ZetaPayPayroll {
             return Err(PayrollError::InvalidCommitment);
         }
 
-        let batch_id = Storage::get_batch_counter(&env) + 1;
+        let batch_id = Storage::get_batch_counter(&env, &employer) + 1;
 
         let batch = PayrollBatch {
             payroll_run_hash,
@@ -117,12 +121,13 @@ impl ZetaPayPayroll {
 
         let record = PayrollRecord { batch, payments };
 
-        Storage::set_payroll_record(&env, batch_id, &record);
-        Storage::set_batch_counter(&env, &batch_id);
-        Storage::mark_proof_processed(&env, &proof_hash);
+        Storage::set_payroll_record(&env, &employer, batch_id, &record);
+        Storage::set_batch_counter(&env, &employer, &batch_id);
+        Storage::mark_proof_processed(&env, &employer, &proof_hash);
 
         Self::update_run_on_submit(
             &env,
+            &employer,
             &record.batch.payroll_run_hash,
             record.batch.period_id,
             record.batch.batch_count,
@@ -134,18 +139,21 @@ impl ZetaPayPayroll {
         Ok(batch_id)
     }
 
-    pub fn execute_batch(env: Env, batch_id: u64) -> Result<(), PayrollError> {
-        let employer = Storage::get_employer(&env)?;
+    pub fn execute_batch(env: Env, employer: Address, batch_id: u64) -> Result<(), PayrollError> {
         employer.require_auth();
 
-        let mut record = Storage::get_payroll_record(&env, batch_id)?;
+        if !Storage::has_employer(&env, &employer) {
+            return Err(PayrollError::NotInitialized);
+        }
+
+        let mut record = Storage::get_payroll_record(&env, &employer, batch_id)?;
 
         if record.batch.is_executed {
             return Err(PayrollError::AlreadyExecuted);
         }
 
-        let xlm_token = Storage::get_xlm_token(&env)?;
-        let usdc_token = Storage::get_usdc_token(&env)?;
+        let xlm_token = Storage::get_xlm_token(&env, &employer)?;
+        let usdc_token = Storage::get_usdc_token(&env, &employer)?;
 
         for payment in record.payments.iter() {
             match payment.token {
@@ -167,26 +175,31 @@ impl ZetaPayPayroll {
         }
 
         record.batch.is_executed = true;
-        Storage::set_payroll_record(&env, batch_id, &record);
+        Storage::set_payroll_record(&env, &employer, batch_id, &record);
 
-        Self::update_run_on_execute(&env, &record.batch.payroll_run_hash);
+        Self::update_run_on_execute(&env, &employer, &record.batch.payroll_run_hash);
 
         Ok(())
     }
 
-    pub fn get_batch_count(env: Env) -> u64 {
-        Storage::get_batch_counter(&env)
+    pub fn get_batch_count(env: Env, employer: Address) -> u64 {
+        Storage::get_batch_counter(&env, &employer)
     }
 
-    pub fn get_payroll_record(env: Env, batch_id: u64) -> Result<PayrollRecord, PayrollError> {
-        Storage::get_payroll_record(&env, batch_id)
+    pub fn get_payroll_record(
+        env: Env,
+        employer: Address,
+        batch_id: u64,
+    ) -> Result<PayrollRecord, PayrollError> {
+        Storage::get_payroll_record(&env, &employer, batch_id)
     }
 
     pub fn get_payroll_run_summary(
         env: Env,
+        employer: Address,
         payroll_run_hash: BytesN<32>,
     ) -> Option<PayrollRunSummary> {
-        Storage::get_payroll_run_summary(&env, &payroll_run_hash)
+        Storage::get_payroll_run_summary(&env, &employer, &payroll_run_hash)
     }
 
     fn proof_hash(
@@ -234,6 +247,7 @@ impl ZetaPayPayroll {
 
     fn update_run_on_submit(
         env: &Env,
+        employer: &Address,
         payroll_run_hash: &BytesN<32>,
         period_id: u64,
         batch_count: u32,
@@ -241,8 +255,8 @@ impl ZetaPayPayroll {
         total_xlm: i128,
         total_usdc: i128,
     ) {
-        let mut summary =
-            Storage::get_payroll_run_summary(env, payroll_run_hash).unwrap_or(PayrollRunSummary {
+        let mut summary = Storage::get_payroll_run_summary(env, employer, payroll_run_hash)
+            .unwrap_or(PayrollRunSummary {
                 payroll_run_hash: payroll_run_hash.clone(),
                 period_id,
                 batch_count,
@@ -263,16 +277,18 @@ impl ZetaPayPayroll {
         summary.is_fully_executed =
             summary.is_complete && summary.executed_batches == summary.batch_count;
 
-        Storage::set_payroll_run_summary(env, payroll_run_hash, &summary);
+        Storage::set_payroll_run_summary(env, employer, payroll_run_hash, &summary);
     }
 
-    fn update_run_on_execute(env: &Env, payroll_run_hash: &BytesN<32>) {
-        if let Some(mut summary) = Storage::get_payroll_run_summary(env, payroll_run_hash) {
+    fn update_run_on_execute(env: &Env, employer: &Address, payroll_run_hash: &BytesN<32>) {
+        if let Some(mut summary) =
+            Storage::get_payroll_run_summary(env, employer, payroll_run_hash)
+        {
             summary.executed_batches += 1;
             summary.is_fully_executed =
                 summary.is_complete && summary.executed_batches == summary.batch_count;
 
-            Storage::set_payroll_run_summary(env, payroll_run_hash, &summary);
+            Storage::set_payroll_run_summary(env, employer, payroll_run_hash, &summary);
         }
     }
 

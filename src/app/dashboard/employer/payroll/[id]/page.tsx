@@ -10,6 +10,7 @@ import {
   FileWarning,
   ShieldCheck,
   Users,
+  WalletCards,
 } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/Card';
@@ -69,15 +70,27 @@ type PayrollRunDetail = {
   batchRoot: string | null;
   payrollRunHash: string | null;
   proofHash: string | null;
+  contractBatchId: number | null;
+  txHash: string | null;
   publicVerificationUrl: string | null;
   status: string | null;
   createdAt: string;
+  metadata?: {
+    soroban?: {
+      contractBatchId?: number | null;
+      submitTxHash?: string | null;
+      executeTxHash?: string | null;
+    };
+  } | null;
   employees: PayrollEmployeeRecord[];
 };
 
 type GeneratedPayrollResult = {
   payrollRunId: number;
   publicVerificationUrl?: string;
+  txHash?: string | null;
+  submitTxHash?: string | null;
+  executeTxHash?: string | null;
   employeeVerificationLinks?: {
     employeeId: number;
     payrollEmployeeId: number;
@@ -86,6 +99,10 @@ type GeneratedPayrollResult = {
     expiresAt: string;
   }[];
 };
+
+function stellarTxUrl(txHash?: string | null) {
+  return txHash ? `https://stellar.expert/explorer/testnet/tx/${txHash}` : null;
+}
 
 export default function EmployerPayrollDetailPage() {
   const params = useParams<{ id: string }>();
@@ -160,12 +177,20 @@ export default function EmployerPayrollDetailPage() {
 
   const verified = Boolean(data.batchRoot && data.proofHash);
   const publicVerificationUrl = data.publicVerificationUrl;
+  const executeTxHash =
+    data.txHash ||
+    data.metadata?.soroban?.executeTxHash ||
+    generatedResult?.executeTxHash ||
+    generatedResult?.txHash ||
+    null;
+  const submitTxHash =
+    data.metadata?.soroban?.submitTxHash || generatedResult?.submitTxHash || null;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={`Payroll #${data.id}`}
-        description="Private employer payroll report with proof data, payees, and verification links."
+        description="Private employer payroll report with proof data, payees, verification links, and Stellar execution records."
         backLink={{ href: ROUTES.employer.payroll, label: 'Back to Payroll' }}
       />
 
@@ -179,23 +204,80 @@ export default function EmployerPayrollDetailPage() {
           <h1 className="mt-4 text-3xl font-bold">Payroll proof record</h1>
 
           <p className="mt-2 max-w-2xl text-sm text-emerald-50/80">
-            This dashboard view can show full payroll details because it is only for the employer.
+            This payroll was generated with Groth16 proof material and executed through the ZetaPay
+            Stellar contract.
           </p>
         </div>
 
         <CardContent className="grid gap-4 p-6 md:grid-cols-4">
-          <Metric label="Status" value={verified ? 'Proof material saved' : 'Incomplete'} />
+          <Metric label="Status" value={data.status || (verified ? 'completed' : 'incomplete')} />
           <Metric label="Payees" value={`${data.payeeCount || data.employees.length}`} />
           <Metric label="Total XLM" value={`${data.totalXlm || '0'} XLM`} />
           <Metric label="Total USDC" value={`${data.totalUsdc || '0'} USDC`} />
         </CardContent>
       </Card>
 
+      {executeTxHash && (
+        <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <WalletCards className="h-5 w-5 text-emerald-600" />
+                  <h2 className="text-lg font-semibold text-slate-900">Stellar execution</h2>
+                </div>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  This payroll was verified by the ZetaPay contract and executed on Stellar Testnet.
+                </p>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <Info label="Network" value="Stellar Testnet" />
+                  <Info
+                    label="Contract batch"
+                    value={data.contractBatchId ? `#${data.contractBatchId}` : 'N/A'}
+                  />
+                  <Info label="Status" value={data.status || 'unknown'} />
+                </div>
+
+                <HashBox label="Execution transaction" value={executeTxHash} onCopy={copy} />
+
+                {submitTxHash && submitTxHash !== executeTxHash && (
+                  <HashBox
+                    label="Proof submission transaction"
+                    value={submitTxHash}
+                    onCopy={copy}
+                  />
+                )}
+              </div>
+
+              <div className="flex shrink-0 gap-2">
+                <Button variant="outline" onClick={() => copy(executeTxHash, 'stellar-tx')}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  {copied === 'stellar-tx' ? 'Copied' : 'Copy tx'}
+                </Button>
+
+                <Button
+                  className="bg-emerald-600 text-white hover:bg-emerald-700"
+                  onClick={() => {
+                    const url = stellarTxUrl(executeTxHash);
+                    if (url) window.open(url, '_blank');
+                  }}
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  View on Stellar
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {publicVerificationUrl && (
         <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
           <CardContent className="p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-lg font-semibold text-slate-900">Public proof link</h2>
                 <p className="mt-1 text-sm text-slate-500">
                   This public link shows totals and proof metadata only. It does not expose payees.
@@ -306,10 +388,12 @@ export default function EmployerPayrollDetailPage() {
               const verificationUrl =
                 generatedLink?.verificationUrl || payee.employeeVerificationLink?.verificationUrl;
 
+              const payeeTxUrl = stellarTxUrl(payee.txHash || executeTxHash);
+
               return (
                 <div
                   key={payee.id}
-                  className="grid gap-4 py-5 lg:grid-cols-[1fr_160px_120px_220px] lg:items-center"
+                  className="grid gap-4 py-5 lg:grid-cols-[1fr_160px_120px_260px] lg:items-center"
                 >
                   <div className="min-w-0">
                     <p className="font-medium text-slate-900">
@@ -346,7 +430,7 @@ export default function EmployerPayrollDetailPage() {
                           onClick={() => copy(verificationUrl, `employee-${payee.id}`)}
                         >
                           <Copy className="mr-2 h-4 w-4" />
-                          {copied === `employee-${payee.id}` ? 'Copied' : 'Copy link'}
+                          {copied === `employee-${payee.id}` ? 'Copied' : 'Copy verification'}
                         </Button>
 
                         <Button
@@ -354,11 +438,22 @@ export default function EmployerPayrollDetailPage() {
                           onClick={() => window.open(verificationUrl, '_blank')}
                         >
                           <ExternalLink className="mr-2 h-4 w-4" />
-                          Open
+                          Open verification
                         </Button>
                       </>
                     ) : (
                       <p className="text-xs text-slate-400">Verification link unavailable.</p>
+                    )}
+
+                    {payeeTxUrl && (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => window.open(payeeTxUrl, '_blank')}
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        Stellar tx
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -376,6 +471,48 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4">
       <p className="text-xs font-medium tracking-wider text-slate-400 uppercase">{label}</p>
       <p className="mt-1 font-semibold text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-4">
+      <p className="text-xs font-medium tracking-wider text-slate-400 uppercase">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function HashBox({
+  label,
+  value,
+  onCopy,
+}: {
+  label: string;
+  value?: string | null;
+  onCopy: (value?: string | null, label?: string) => void;
+}) {
+  if (!value) return null;
+
+  return (
+    <div className="mt-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-medium tracking-wider text-slate-400 uppercase">{label}</p>
+
+        <button
+          type="button"
+          onClick={() => onCopy(value, label)}
+          className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700"
+        >
+          <Copy className="h-3 w-3" />
+          Copy
+        </button>
+      </div>
+
+      <p className="mt-1 rounded-2xl bg-slate-50 p-3 font-mono text-xs break-all text-slate-700">
+        {value}
+      </p>
     </div>
   );
 }

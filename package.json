@@ -35,7 +35,9 @@
     "contracts:build": "cd contracts && stellar contract build",
     "contracts:deploy:verifier": "stellar contract deploy --wasm contracts/target/wasm32v1-none/release/zetapay_verifier.wasm --source-account zetapay-deployer --network testnet --alias zetapay-verifier",
     "contracts:deploy:payroll": "stellar contract deploy --wasm contracts/target/wasm32v1-none/release/zetapay_payroll.wasm --source-account zetapay-deployer --network testnet --alias zetapay-payroll",
-    "contracts:initialize": "tsx scripts/contracts/initialize.ts"
+    "contracts:initialize": "tsx scripts/contracts/initialize.ts",
+    "contracts:deploy": "yarn contracts:build && yarn contracts:deploy:verifier && yarn contracts:deploy:payroll",
+    "contracts:redeploy:testnet": "yarn zetapay:test && yarn contracts:deploy"
   },
   "dependencies": {
     "@stellar/freighter-api": "^6.0.1",

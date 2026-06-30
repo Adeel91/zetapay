@@ -28,7 +28,7 @@ function g1ToHex(point: string[]) {
 }
 
 function g2ToHex(point: string[][]) {
-  return `${toHex32(point[0][0])}${toHex32(point[0][1])}${toHex32(point[1][0])}${toHex32(point[1][1])}`;
+  return `${toHex32(point[0][1])}${toHex32(point[0][0])}${toHex32(point[1][1])}${toHex32(point[1][0])}`;
 }
 
 export function loadSorobanVerificationKey(filePath: string): SorobanVerificationKey {

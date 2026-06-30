@@ -55,11 +55,13 @@ export default function EmployerConnect() {
         router.push(ROUTES.employer.root);
       }, 800);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Connection failed';
+      const errorMessage =
+        err instanceof Error && err.message
+          ? err.message
+          : 'Failed to authenticate wallet. Please approve the prompt and try again.';
+
       console.error('Connection failed:', err);
-      setError(
-        errorMessage || 'Failed to authenticate wallet. Please approve the prompt and try again.'
-      );
+      setError(errorMessage);
     } finally {
       setIsConnecting(false);
     }
