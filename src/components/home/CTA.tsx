@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, FileCheck2, LockKeyhole } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { ROUTES } from '@/config';
 
 export function CTA() {
   return (
@@ -27,7 +28,7 @@ export function CTA() {
           </p>
 
           <div className="mt-10 flex flex-wrap justify-center gap-4">
-            <Link href="/dashboard/employer">
+            <Link href={ROUTES.auth.root}>
               <Button
                 size="lg"
                 className="group rounded-2xl bg-emerald-400 px-8 py-4 font-bold text-slate-950 shadow-xl shadow-emerald-500/20 transition hover:bg-emerald-300"
@@ -40,7 +41,7 @@ export function CTA() {
             </Link>
 
             <Link
-              href="/dashboard/auditor"
+              href={ROUTES.auth.root}
               className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-8 py-4 font-bold text-white transition hover:border-white/20 hover:bg-white/10"
             >
               <FileCheck2 className="h-4 w-4 text-emerald-300" />

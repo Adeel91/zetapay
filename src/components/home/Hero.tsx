@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { ROUTES } from '@/config';
 
 const proofRows = [
   ['batch_root', '0x8f41c91e93d0a7b4'],
@@ -81,7 +82,7 @@ export function Hero() {
             </p>
 
             <div className="mt-9 flex flex-wrap gap-4">
-              <Link href="/dashboard/employer">
+              <Link href={ROUTES.auth.root}>
                 <Button
                   size="lg"
                   className="group rounded-2xl bg-emerald-400 px-7 py-4 font-bold text-slate-950 shadow-xl shadow-emerald-500/20 transition hover:bg-emerald-300"
@@ -94,7 +95,7 @@ export function Hero() {
               </Link>
 
               <Link
-                href="/dashboard/auditor"
+                href={ROUTES.auth.root}
                 className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-7 py-4 font-bold text-white backdrop-blur transition hover:border-emerald-300/40 hover:bg-white/10"
               >
                 <FileCheck2 className="h-4 w-4 text-emerald-300" />

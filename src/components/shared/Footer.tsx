@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { Code2, ShieldCheck, Sparkles } from 'lucide-react';
+import { ROUTES } from '@/config';
 
 const productLinks = [
-  { label: 'Employer Dashboard', href: '/dashboard/employer' },
-  { label: 'Auditor Dashboard', href: '/dashboard/auditor' },
+  { label: 'Employer Dashboard', href: `${ROUTES.auth.root}` },
+  { label: 'Auditor Dashboard', href: `${ROUTES.auth.root}` },
   { label: 'Employee Verify', href: '/verify/demo' },
 ];
 

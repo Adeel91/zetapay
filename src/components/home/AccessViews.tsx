@@ -12,6 +12,7 @@ import {
   ReceiptText,
   ShieldCheck,
 } from 'lucide-react';
+import { ROUTES } from '@/config';
 
 type View = {
   icon: LucideIcon;
@@ -29,7 +30,7 @@ const views: View[] = [
     eyebrow: 'Employer view',
     title: 'Build the payroll batch',
     text: 'Create payroll runs, generate commitments, build Merkle roots, produce audit keys, and issue encrypted verification links.',
-    href: '/dashboard/employer',
+    href: ROUTES.auth.root,
     action: 'Open employer dashboard',
     items: ['Employees', 'Payroll runs', 'Commitments', 'Merkle root'],
   },
@@ -38,7 +39,7 @@ const views: View[] = [
     eyebrow: 'Auditor view',
     title: 'Unlock approved reports',
     text: 'Auditors use a scoped audit key to review payroll reports, inspect approved records, and generate audit logs.',
-    href: '/dashboard/auditor',
+    href: ROUTES.auth.root,
     action: 'Open auditor dashboard',
     items: ['Audit key', 'Payroll report', 'Record viewer', 'Audit log'],
   },

@@ -3,7 +3,6 @@ import { cookies } from 'next/headers';
 import './globals.css';
 import { Providers } from './providers';
 import { Navbar } from '@/components/shared/Navbar';
-import { Footer } from '@/components/shared/Footer';
 import { EMPLOYER, AUDITOR } from '@/config';
 
 export const metadata: Metadata = {
@@ -56,8 +55,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="bg-slate-950" suppressHydrationWarning>
         <Providers>
           <Navbar initialUserInfo={userInfo} />
-          <main className="pt-16">{children}</main>
-          <Footer />
+          {children}
         </Providers>
       </body>
     </html>
