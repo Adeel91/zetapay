@@ -32,10 +32,10 @@ pub enum VerifierError {
 }
 
 #[contract]
-pub struct ZkVerifier;
+pub struct ZetaPayVerifier;
 
 #[contractimpl]
-impl ZkVerifier {
+impl ZetaPayVerifier {
     pub fn verify(
         env: Env,
         vk: VerificationKey,

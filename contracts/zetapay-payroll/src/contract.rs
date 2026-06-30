@@ -10,20 +10,20 @@ use crate::{
     },
 };
 
-use zk_verifier::{Proof, ZkVerifierClient};
+use zetapay_verifier::{Proof, ZetaPayVerifierClient};
 
 #[contract]
-pub struct ZkPayroll;
+pub struct ZetaPayPayroll;
 
 #[contractimpl]
-impl ZkPayroll {
+impl ZetaPayPayroll {
     pub fn initialize(
         env: Env,
         employer: Address,
         verifier: Address,
         xlm_token: Address,
         usdc_token: Address,
-        vk: zk_verifier::VerificationKey,
+        vk: zetapay_verifier::VerificationKey,
     ) -> Result<(), PayrollError> {
         employer.require_auth();
 
@@ -68,7 +68,7 @@ impl ZkPayroll {
 
         let verifier = Storage::get_verifier(&env)?;
         let vk = Storage::get_verification_key(&env)?;
-        let verifier_client = ZkVerifierClient::new(&env, &verifier);
+        let verifier_client = ZetaPayVerifierClient::new(&env, &verifier);
 
         let verified = verifier_client
             .try_verify(&vk, &proof, &public_inputs)

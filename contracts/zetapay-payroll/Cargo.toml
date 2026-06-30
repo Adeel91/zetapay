@@ -1,5 +1,5 @@
 [package]
-name = "zk-payroll"
+name = "zetapay-payroll"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -11,7 +11,7 @@ doctest = false
 
 [dependencies]
 soroban-sdk = { workspace = true }
-zk-verifier = { path = "../zk-verifier" }
+zetapay-verifier = { path = "../zetapay-verifier" }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }

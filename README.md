@@ -171,7 +171,7 @@ Current tables
 - payroll_verification_links
 - audit_logs
 - audit_keys
-- zk_proofs
+- zetapay_proofs
 - payroll_settings
 - transaction_logs
 

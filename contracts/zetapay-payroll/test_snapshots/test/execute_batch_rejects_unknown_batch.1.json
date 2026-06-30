@@ -1,6 +1,6 @@
 {
   "generators": {
-    "address": 10,
+    "address": 5,
     "nonce": 0,
     "mux_id": 0
   },
@@ -91,7 +91,7 @@
                         "symbol": "delta"
                       },
                       "val": {
-                        "bytes": "20044ef4b1f297dec5a4e37e7bc2fc0be44274320cfb66078355803ed7dd691418dfe1b8b270f56724bb371e182eb2e5b91ec9901f0a4859cce08aa95f8f4f92193d4797c0358ae13aae92f135ba76815b8d61d8c0b286a43a64e091bd5b45de22003f3987dd91d686258bf2c07e60703e193551b8118a2fc205a0d66b32b7f0"
+                        "bytes": "1ff551b42a732daad80b0b021e378e4491b6d9f44b0904fc39cf8591ceafccb82cfc4d046b9fd787ce8760f829cb765526e89a7d6e55be4d8d562bf984837ba11f78f3b738ed0da26ae7b8ea0cec3bb427ba0f7184c3204faf2dec9f4959fdb10d27601810ff105d829b34a6847a7de66b8e794ef0865b91ef8bc8c7a7e4a298"
                       }
                     },
                     {
@@ -186,7 +186,6 @@
         }
       ]
     ],
-    [],
     []
   ],
   "ledger": {
@@ -406,7 +405,7 @@
                               "symbol": "delta"
                             },
                             "val": {
-                              "bytes": "20044ef4b1f297dec5a4e37e7bc2fc0be44274320cfb66078355803ed7dd691418dfe1b8b270f56724bb371e182eb2e5b91ec9901f0a4859cce08aa95f8f4f92193d4797c0358ae13aae92f135ba76815b8d61d8c0b286a43a64e091bd5b45de22003f3987dd91d686258bf2c07e60703e193551b8118a2fc205a0d66b32b7f0"
+                              "bytes": "1ff551b42a732daad80b0b021e378e4491b6d9f44b0904fc39cf8591ceafccb82cfc4d046b9fd787ce8760f829cb765526e89a7d6e55be4d8d562bf984837ba11f78f3b738ed0da26ae7b8ea0cec3bb427ba0f7184c3204faf2dec9f4959fdb10d27601810ff105d829b34a6847a7de66b8e794ef0865b91ef8bc8c7a7e4a298"
                             }
                           },
                           {

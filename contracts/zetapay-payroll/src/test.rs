@@ -3,7 +3,7 @@
 extern crate std;
 
 use crate::{
-    contract::{ZkPayroll, ZkPayrollClient},
+    contract::{ZetaPayPayroll, ZetaPayPayrollClient},
     fixtures::{
         REAL_PROOF_A, REAL_PROOF_B, REAL_PROOF_C, REAL_SIGNALS, REAL_VK_ALPHA, REAL_VK_BETA,
         REAL_VK_DELTA, REAL_VK_GAMMA, REAL_VK_IC,
@@ -17,15 +17,15 @@ use soroban_sdk::{
     Address, BytesN, Env, Vec,
 };
 
-use zk_verifier::{Proof, VerificationKey, ZkVerifier};
+use zetapay_verifier::{Proof, VerificationKey, ZetaPayVerifier};
 
 fn deploy_verifier(env: &Env) -> Address {
-    env.register(ZkVerifier, ())
+    env.register(ZetaPayVerifier, ())
 }
 
-fn deploy_payroll(env: &Env) -> ZkPayrollClient<'_> {
-    let id = env.register(ZkPayroll, ());
-    ZkPayrollClient::new(env, &id)
+fn deploy_payroll(env: &Env) -> ZetaPayPayrollClient<'_> {
+    let id = env.register(ZetaPayPayroll, ());
+    ZetaPayPayrollClient::new(env, &id)
 }
 
 fn token_contract(env: &Env, admin: &Address) -> Address {

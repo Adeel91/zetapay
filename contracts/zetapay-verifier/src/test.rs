@@ -6,7 +6,7 @@ use crate::{
     fixtures::{
         PROOF_A, PROOF_B, PROOF_C, SIGNALS, VK_ALPHA, VK_BETA, VK_DELTA, VK_GAMMA, VK_IC,
     },
-    Proof, VerificationKey, ZkVerifier, ZkVerifierClient,
+    Proof, VerificationKey, ZetaPayVerifier, ZetaPayVerifierClient,
 };
 
 use soroban_sdk::{
@@ -14,9 +14,9 @@ use soroban_sdk::{
     BytesN, Env, Vec,
 };
 
-fn deploy(env: &Env) -> ZkVerifierClient<'_> {
-    let id = env.register(ZkVerifier, ());
-    ZkVerifierClient::new(env, &id)
+fn deploy(env: &Env) -> ZetaPayVerifierClient<'_> {
+    let id = env.register(ZetaPayVerifier, ());
+    ZetaPayVerifierClient::new(env, &id)
 }
 
 fn make_proof(env: &Env) -> Proof {

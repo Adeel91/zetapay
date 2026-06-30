@@ -27,11 +27,11 @@
     "circuits:all": "yarn circuits:inputs && yarn circuits:witness && yarn circuits:prove && yarn circuits:verify && yarn circuits:fixtures",
     "circuits:rebuild": "yarn circuits:clean && yarn circuits:compile && yarn circuits:setup && yarn circuits:all",
     "contracts:clean": "cd contracts && cargo clean",
-    "contracts:zk-verifier:test": "cd contracts && cargo test -p zk-verifier -- --nocapture",
-    "contracts:zk-payroll:test": "cd contracts && cargo test -p zk-payroll -- --nocapture",
-    "contracts:zk-payroll:check": "cd contracts && cargo check -p zk-payroll",
-    "contracts:test": "yarn contracts:zk-verifier:test && yarn contracts:zk-payroll:test",
-    "zk:test": "yarn circuits:rebuild && yarn contracts:test"
+    "contracts:zetapay-verifier:test": "cd contracts && cargo test -p zetapay-verifier -- --nocapture",
+    "contracts:zetapay-payroll:test": "cd contracts && cargo test -p zetapay-payroll -- --nocapture",
+    "contracts:zetapay-payroll:check": "cd contracts && cargo check -p zetapay-payroll",
+    "contracts:test": "yarn contracts:zetapay-verifier:test && yarn contracts:zetapay-payroll:test",
+    "zetapay:test": "yarn circuits:rebuild && yarn contracts:test"
   },
   "dependencies": {
     "@stellar/freighter-api": "^6.0.1",

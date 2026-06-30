@@ -104,8 +104,8 @@ const payrollFixtures = verifierFixtures
   .replaceAll('VK_DELTA', 'REAL_VK_DELTA')
   .replaceAll('VK_IC', 'REAL_VK_IC');
 
-const verifierFixturesPath = path.join(root, 'contracts/zk-verifier/src/fixtures.rs');
-const payrollFixturesPath = path.join(root, 'contracts/zk-payroll/src/fixtures.rs');
+const verifierFixturesPath = path.join(root, 'contracts/zetapay-verifier/src/fixtures.rs');
+const payrollFixturesPath = path.join(root, 'contracts/zetapay-payroll/src/fixtures.rs');
 
 fs.mkdirSync(path.dirname(verifierFixturesPath), { recursive: true });
 fs.mkdirSync(path.dirname(payrollFixturesPath), { recursive: true });

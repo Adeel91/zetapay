@@ -53,11 +53,11 @@ impl Storage {
         env.storage().instance().set(&DataKey::Verifier, verifier);
     }
 
-    pub fn set_verification_key(env: &Env, vk: &zk_verifier::VerificationKey) {
+    pub fn set_verification_key(env: &Env, vk: &zetapay_verifier::VerificationKey) {
         env.storage().instance().set(&DataKey::VerificationKey, vk);
     }
 
-    pub fn get_verification_key(env: &Env) -> Result<zk_verifier::VerificationKey, PayrollError> {
+    pub fn get_verification_key(env: &Env) -> Result<zetapay_verifier::VerificationKey, PayrollError> {
         env.storage()
             .instance()
             .get(&DataKey::VerificationKey)

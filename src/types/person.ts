@@ -3,11 +3,7 @@ import { EMPLOYEE, FREELANCER, CONTRACTOR, VENDOR, CONSULTANT } from '@/config';
 export type PaymentCurrency = 'XLM' | 'USDC';
 
 export type PersonType =
-  | typeof EMPLOYEE
-  | typeof FREELANCER
-  | typeof CONTRACTOR
-  | typeof VENDOR
-  | typeof CONSULTANT;
+  typeof EMPLOYEE | typeof FREELANCER | typeof CONTRACTOR | typeof VENDOR | typeof CONSULTANT;
 
 export interface Person {
   id: string;
