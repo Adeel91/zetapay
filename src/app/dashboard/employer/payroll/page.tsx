@@ -9,20 +9,7 @@ import { API, ROUTES } from '@/config';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
-
-type PayrollRun = {
-  id: number;
-  periodStart: string;
-  periodEnd: string;
-  totalXlm: string;
-  totalUsdc: string;
-  payeeCount: number;
-  batchCount: number;
-  batchRoot: string | null;
-  proofHash: string | null;
-  status: string;
-  createdAt: string;
-};
+import { PayrollRun } from '@/types/payroll';
 
 export default function EmployerPayrollPage() {
   const [payrollRuns, setPayrollRuns] = useState<PayrollRun[]>([]);
