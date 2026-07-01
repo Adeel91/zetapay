@@ -73,39 +73,71 @@ next-env.d.ts
 /contracts/target/
 /contracts/test_snapshots/
 
-# Keep Cargo.lock committed for reproducible builds
+# Keep Cargo.lock committed
 
 # -------------------------------------------------------
-# Zero Knowledge Circuits
+# Zero Knowledge
 # -------------------------------------------------------
 
-# Old Noir artifacts
+# Legacy artifacts
 /circuits/target/
 /circuits/proofs/
 /circuits/verifier/
 
 # Powers of Tau
 /circuits/payroll/ptau/
+/circuits/pool/ptau/
 
-# Generated circuit artifacts
+# =======================================================
+# Payroll generated artifacts
+# =======================================================
+
 /circuits/payroll/build/payroll_js/
-/circuits/payroll/build/witness.wtns
-/circuits/payroll/build/payroll.r1cs
-/circuits/payroll/build/payroll.sym
-/circuits/payroll/build/payroll_0000.zkey
-/circuits/payroll/build/payroll_final.zkey
+/circuits/payroll/build/*.wtns
+/circuits/payroll/build/*.r1cs
+/circuits/payroll/build/*.sym
+/circuits/payroll/build/*_0000.zkey
+/circuits/payroll/build/*_final.zkey
 
-# Ignore generated JSON by default
+# Ignore generated json
 /circuits/payroll/build/*.json
 
-# Keep reference artifacts
+# Keep committed artifacts
 !/circuits/payroll/build/proof.json
 !/circuits/payroll/build/public.json
 !/circuits/payroll/build/verification_key.json
 
-# Rust fixtures are intentionally committed
-!/contracts/zetapay-payroll/src/fixtures.rs
+# =======================================================
+# Shielded Pool generated artifacts
+# =======================================================
+
+/circuits/pool/build/deposit_js/
+/circuits/pool/build/withdraw_js/
+/circuits/pool/build/*.wtns
+/circuits/pool/build/*.r1cs
+/circuits/pool/build/*.sym
+/circuits/pool/build/*_0000.zkey
+/circuits/pool/build/*_final.zkey
+
+# Ignore generated json
+/circuits/pool/build/*.json
+
+# Keep committed artifacts
+!/circuits/pool/build/deposit_proof.json
+!/circuits/pool/build/deposit_public.json
+!/circuits/pool/build/deposit_verification_key.json
+
+!/circuits/pool/build/withdraw_proof.json
+!/circuits/pool/build/withdraw_public.json
+!/circuits/pool/build/withdraw_verification_key.json
+
+# =======================================================
+# Rust generated fixtures
+# =======================================================
+
 !/contracts/zetapay-verifier/src/fixtures.rs
+!/contracts/zetapay-payroll/src/fixtures.rs
+!/contracts/zetapay-pool/src/fixtures.rs
 
 # -------------------------------------------------------
 # IDE
@@ -129,7 +161,7 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # -------------------------------------------------------
-# Temporary Files
+# Temporary
 # -------------------------------------------------------
 
 tmp/

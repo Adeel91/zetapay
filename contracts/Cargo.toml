@@ -2,7 +2,8 @@
 resolver = "2"
 members = [
     "zetapay-verifier",
-    "zetapay-payroll"
+    "zetapay-payroll",
+    "zetapay-pool"
 ]
 
 [workspace.dependencies]
