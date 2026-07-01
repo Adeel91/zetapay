@@ -106,12 +106,7 @@ impl Storage {
             .set(&DataKey::BatchCounter(employer.clone()), value);
     }
 
-    pub fn set_payroll_record(
-        env: &Env,
-        employer: &Address,
-        id: u64,
-        record: &PayrollRecord,
-    ) {
+    pub fn set_payroll_record(env: &Env, employer: &Address, id: u64, record: &PayrollRecord) {
         env.storage()
             .persistent()
             .set(&DataKey::PayrollBatch(employer.clone(), id), record);
@@ -128,11 +123,7 @@ impl Storage {
             .ok_or(PayrollError::NotInitialized)
     }
 
-    pub fn is_proof_processed(
-        env: &Env,
-        employer: &Address,
-        proof_hash: &BytesN<32>,
-    ) -> bool {
+    pub fn is_proof_processed(env: &Env, employer: &Address, proof_hash: &BytesN<32>) -> bool {
         env.storage()
             .persistent()
             .has(&DataKey::ProcessedProof(employer.clone(), proof_hash.clone()))

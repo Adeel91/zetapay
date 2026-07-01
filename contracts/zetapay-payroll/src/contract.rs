@@ -51,6 +51,8 @@ impl ZetaPayPayroll {
         batch_index: u32,
         batch_count: u32,
         commitment_root: Bn254Fr,
+        encrypted_payroll: Bytes,
+        encrypted_notes: Vec<Bytes>,
     ) -> Result<u64, PayrollError> {
         employer.require_auth();
 
@@ -66,13 +68,20 @@ impl ZetaPayPayroll {
             batch_index,
             batch_count,
             commitment_root,
+            encrypted_payroll,
+            encrypted_notes,
         )
     }
 
-    pub fn execute_batch(env: Env, employer: Address, batch_id: u64) -> Result<(), PayrollError> {
+    pub fn execute_batch(
+        env: Env,
+        employer: Address,
+        batch_id: u64,
+        payments: Vec<PayrollPayment>,
+    ) -> Result<(), PayrollError> {
         employer.require_auth();
 
-        Self::execute_batch_without_auth(&env, &employer, batch_id)
+        Self::execute_batch_without_auth(&env, &employer, batch_id, payments)
     }
 
     pub fn submit_and_execute_batch(
@@ -87,13 +96,15 @@ impl ZetaPayPayroll {
         batch_index: u32,
         batch_count: u32,
         commitment_root: Bn254Fr,
+        encrypted_payroll: Bytes,
+        encrypted_notes: Vec<Bytes>,
     ) -> Result<u64, PayrollError> {
         employer.require_auth();
 
         let batch_id = Self::submit_batch_without_auth(
             &env,
             &employer,
-            payments,
+            payments.clone(),
             proof,
             public_inputs,
             payroll_run_hash,
@@ -102,9 +113,11 @@ impl ZetaPayPayroll {
             batch_index,
             batch_count,
             commitment_root,
+            encrypted_payroll,
+            encrypted_notes,
         )?;
 
-        Self::execute_batch_without_auth(&env, &employer, batch_id)?;
+        Self::execute_batch_without_auth(&env, &employer, batch_id, payments)?;
 
         Ok(batch_id)
     }
@@ -141,6 +154,8 @@ impl ZetaPayPayroll {
         batch_index: u32,
         batch_count: u32,
         commitment_root: Bn254Fr,
+        encrypted_payroll: Bytes,
+        encrypted_notes: Vec<Bytes>,
     ) -> Result<u64, PayrollError> {
         if !Storage::has_employer(env, employer) {
             return Err(PayrollError::NotInitialized);
@@ -148,6 +163,10 @@ impl ZetaPayPayroll {
 
         if payments.is_empty() {
             return Err(PayrollError::InvalidPayeeCount);
+        }
+
+        if encrypted_payroll.is_empty() || encrypted_notes.is_empty() {
+            return Err(PayrollError::MissingEncryptedPayload);
         }
 
         let proof_hash = Self::proof_hash(env, &public_inputs, &payroll_run_hash);
@@ -172,6 +191,10 @@ impl ZetaPayPayroll {
         let totals = Self::parse_public_totals(&public_inputs)?;
 
         if totals.payee_count_total != payments.len() {
+            return Err(PayrollError::InvalidPayeeCount);
+        }
+
+        if totals.payee_count_total != encrypted_notes.len() {
             return Err(PayrollError::InvalidPayeeCount);
         }
 
@@ -202,10 +225,12 @@ impl ZetaPayPayroll {
             total_amount: totals.total_amount,
             total_xlm: totals.total_xlm,
             total_usdc: totals.total_usdc,
+            encrypted_payroll,
+            encrypted_notes,
             is_executed: false,
         };
 
-        let record = PayrollRecord { batch, payments };
+        let record = PayrollRecord { batch };
 
         Storage::set_payroll_record(env, employer, batch_id, &record);
         Storage::set_batch_counter(env, employer, &batch_id);
@@ -229,6 +254,7 @@ impl ZetaPayPayroll {
         env: &Env,
         employer: &Address,
         batch_id: u64,
+        payments: Vec<PayrollPayment>,
     ) -> Result<(), PayrollError> {
         if !Storage::has_employer(env, employer) {
             return Err(PayrollError::NotInitialized);
@@ -240,10 +266,12 @@ impl ZetaPayPayroll {
             return Err(PayrollError::AlreadyExecuted);
         }
 
+        Self::verify_execution_payments(&payments, &record.batch)?;
+
         let xlm_token = Storage::get_xlm_token(env, employer)?;
         let usdc_token = Storage::get_usdc_token(env, employer)?;
 
-        for payment in record.payments.iter() {
+        for payment in payments.iter() {
             match payment.token {
                 Token::XLM => {
                     token::TokenClient::new(env, &xlm_token).transfer(
@@ -266,6 +294,41 @@ impl ZetaPayPayroll {
         Storage::set_payroll_record(env, employer, batch_id, &record);
 
         Self::update_run_on_execute(env, employer, &record.batch.payroll_run_hash);
+
+        Ok(())
+    }
+
+    fn verify_execution_payments(
+        payments: &Vec<PayrollPayment>,
+        batch: &PayrollBatch,
+    ) -> Result<(), PayrollError> {
+        let mut total_amount: i128 = 0;
+        let mut total_xlm: i128 = 0;
+        let mut total_usdc: i128 = 0;
+
+        if payments.len() != batch.payment_count {
+            return Err(PayrollError::InvalidPayeeCount);
+        }
+
+        for payment in payments.iter() {
+            if payment.amount <= 0 {
+                return Err(PayrollError::InvalidTotals);
+            }
+
+            total_amount += payment.amount;
+
+            match payment.token {
+                Token::XLM => total_xlm += payment.amount,
+                Token::USDC => total_usdc += payment.amount,
+            }
+        }
+
+        if total_amount != batch.total_amount
+            || total_xlm != batch.total_xlm
+            || total_usdc != batch.total_usdc
+        {
+            return Err(PayrollError::InvalidTotals);
+        }
 
         Ok(())
     }

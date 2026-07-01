@@ -135,7 +135,7 @@
                         "symbol": "delta"
                       },
                       "val": {
-                        "bytes": "1d3734f9988c481d1818d865cb1ce0b8e62be747f42ebc5d75e28302f6c93d80010abe8f85bdc8b1fc58bfb6c2f47071513e766338064b35e9177c7ff9128ab0106cb54f22412bfe674ddaadf32eef9b9bbabac937b8d9cd94ab9a4e26fcb3b92a69af997a1d2b3ad8ddd404938a8fde641e3a71ee1b7bbb09d6340efbc6c8a3"
+                        "bytes": "0a924bbb16eb9ff02e7456c77b4b9851b132f10fc8d4557220cc9fd37df64f2f0f2a3286f49584655e6b48c9dcb6b30b56043124b6add500ea61e94dbf3df244124e8203175bdc3342cfbc0f0899357cecad877edd3ccff453cbc89a504df9362de73182c7157b92b4f58bb4dcfdaa1bf260bc7109dd9ee82468663ed9a7459e"
                       }
                     },
                     {
@@ -513,7 +513,7 @@
                         "symbol": "a"
                       },
                       "val": {
-                        "bytes": "0582674f6864b3a373d59917c8df6c5bcccc4cff14fff55afec04527b14bdf7116bce2789b97406743263124a9a7d48d0500382df9fc3ee07aa4fd7daba92914"
+                        "bytes": "0624576817f6cdd3a49607d0e37dcd5f14e4a59cd8c8f6da9f4398e52e85348028002bde7f4de4e020682b3c72e73573958984bb91f5d00656f09bebae6993c2"
                       }
                     },
                     {
@@ -521,7 +521,7 @@
                         "symbol": "b"
                       },
                       "val": {
-                        "bytes": "15d24663e78eec639bdba0272fcc65fc31bdc1e8b92b3ca69b09e8c7a988976c10caa57fa3195d458fc204dec1b61244cd04a3e56dc9c780b609d9340ea938f80b260cfc1a3c2087f3ba69d01bff5fd20abbbc7270b0d0d4f7a171afb07fd9d82de090a0de65242b71ea6d96097e72e6fd27f02af64d1f62741995f78b150eee"
+                        "bytes": "0ce3a26666f746485af816f18ecd0f2ba492462df89f46e3ba7d4172b9b89e6b12041beb2c9be7b7e0311c4c182df0eb698cc0fbd86912a954e8987b183c2f64120c61ec538cc29ed8a608c54b975fe3db6f4cfb25356188fcc5023ff86b5a2120fdfbda4eeeb5df31fded55b0909a91284556330ddca07a3f05fb59ee606995"
                       }
                     },
                     {
@@ -529,7 +529,7 @@
                         "symbol": "c"
                       },
                       "val": {
-                        "bytes": "2fa5b526225ab16630de4a80297f19ce94543ef4abe767b09361ed4dcffa92022024bcdcef59e4e7155102a3ceb32054c07cda8f8698d82e4e1a7f83720d385d"
+                        "bytes": "076d1c6b7299695c35ec5aec3ed774a759e1844c455355b2c8761817f4279cd32a021fdd818379f1efa9e548f8a2bed6a733f8bdb82c337177347b789296aff4"
                       }
                     }
                   ]
@@ -618,6 +618,28 @@
                 },
                 {
                   "u256": "8030162563228096820029740641545602423374860111197791580906260359623850060012"
+                },
+                {
+                  "bytes": "69762e617574682e636970686572746578742e66756c6c2e656e637279707465642e706179726f6c6c2e61756469742e7061796c6f6164"
+                },
+                {
+                  "vec": [
+                    {
+                      "bytes": "69762e617574682e636970686572746578742e656d706c6f7965652e6e6f74652e31"
+                    },
+                    {
+                      "bytes": "69762e617574682e636970686572746578742e656d706c6f7965652e6e6f74652e32"
+                    },
+                    {
+                      "bytes": "69762e617574682e636970686572746578742e656d706c6f7965652e6e6f74652e33"
+                    },
+                    {
+                      "bytes": "69762e617574682e636970686572746578742e656d706c6f7965652e6e6f74652e34"
+                    },
+                    {
+                      "bytes": "69762e617574682e636970686572746578742e656d706c6f7965652e6e6f74652e35"
+                    }
+                  ]
                 }
               ]
             }
@@ -640,6 +662,270 @@
                 },
                 {
                   "u64": "1"
+                },
+                {
+                  "vec": [
+                    {
+                      "map": [
+                        {
+                          "key": {
+                            "symbol": "amount"
+                          },
+                          "val": {
+                            "i128": "5000"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "payee_id"
+                          },
+                          "val": {
+                            "u64": "1"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "payee_type"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "symbol": "Employee"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "recipient"
+                          },
+                          "val": {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "token"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "symbol": "XLM"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "map": [
+                        {
+                          "key": {
+                            "symbol": "amount"
+                          },
+                          "val": {
+                            "i128": "3000"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "payee_id"
+                          },
+                          "val": {
+                            "u64": "2"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "payee_type"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "symbol": "Employee"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "recipient"
+                          },
+                          "val": {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "token"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "symbol": "USDC"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "map": [
+                        {
+                          "key": {
+                            "symbol": "amount"
+                          },
+                          "val": {
+                            "i128": "7000"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "payee_id"
+                          },
+                          "val": {
+                            "u64": "3"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "payee_type"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "symbol": "Contractor"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "recipient"
+                          },
+                          "val": {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARQG5"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "token"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "symbol": "XLM"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "map": [
+                        {
+                          "key": {
+                            "symbol": "amount"
+                          },
+                          "val": {
+                            "i128": "12000"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "payee_id"
+                          },
+                          "val": {
+                            "u64": "4"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "payee_type"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "symbol": "Freelancer"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "recipient"
+                          },
+                          "val": {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "token"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "symbol": "USDC"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "map": [
+                        {
+                          "key": {
+                            "symbol": "amount"
+                          },
+                          "val": {
+                            "i128": "9000"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "payee_id"
+                          },
+                          "val": {
+                            "u64": "5"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "payee_type"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "symbol": "Vendor"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "recipient"
+                          },
+                          "val": {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVAX5"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "token"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "symbol": "XLM"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -1026,6 +1312,38 @@
                         },
                         {
                           "key": {
+                            "symbol": "encrypted_notes"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "bytes": "69762e617574682e636970686572746578742e656d706c6f7965652e6e6f74652e31"
+                              },
+                              {
+                                "bytes": "69762e617574682e636970686572746578742e656d706c6f7965652e6e6f74652e32"
+                              },
+                              {
+                                "bytes": "69762e617574682e636970686572746578742e656d706c6f7965652e6e6f74652e33"
+                              },
+                              {
+                                "bytes": "69762e617574682e636970686572746578742e656d706c6f7965652e6e6f74652e34"
+                              },
+                              {
+                                "bytes": "69762e617574682e636970686572746578742e656d706c6f7965652e6e6f74652e35"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "encrypted_payroll"
+                          },
+                          "val": {
+                            "bytes": "69762e617574682e636970686572746578742e66756c6c2e656e637279707465642e706179726f6c6c2e61756469742e7061796c6f6164"
+                          }
+                        },
+                        {
+                          "key": {
                             "symbol": "is_executed"
                           },
                           "val": {
@@ -1087,275 +1405,6 @@
                           "val": {
                             "i128": "21000"
                           }
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "payments"
-                    },
-                    "val": {
-                      "vec": [
-                        {
-                          "map": [
-                            {
-                              "key": {
-                                "symbol": "amount"
-                              },
-                              "val": {
-                                "i128": "5000"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "payee_id"
-                              },
-                              "val": {
-                                "u64": "1"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "payee_type"
-                              },
-                              "val": {
-                                "vec": [
-                                  {
-                                    "symbol": "Employee"
-                                  }
-                                ]
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "recipient"
-                              },
-                              "val": {
-                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "token"
-                              },
-                              "val": {
-                                "vec": [
-                                  {
-                                    "symbol": "XLM"
-                                  }
-                                ]
-                              }
-                            }
-                          ]
-                        },
-                        {
-                          "map": [
-                            {
-                              "key": {
-                                "symbol": "amount"
-                              },
-                              "val": {
-                                "i128": "3000"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "payee_id"
-                              },
-                              "val": {
-                                "u64": "2"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "payee_type"
-                              },
-                              "val": {
-                                "vec": [
-                                  {
-                                    "symbol": "Employee"
-                                  }
-                                ]
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "recipient"
-                              },
-                              "val": {
-                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "token"
-                              },
-                              "val": {
-                                "vec": [
-                                  {
-                                    "symbol": "USDC"
-                                  }
-                                ]
-                              }
-                            }
-                          ]
-                        },
-                        {
-                          "map": [
-                            {
-                              "key": {
-                                "symbol": "amount"
-                              },
-                              "val": {
-                                "i128": "7000"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "payee_id"
-                              },
-                              "val": {
-                                "u64": "3"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "payee_type"
-                              },
-                              "val": {
-                                "vec": [
-                                  {
-                                    "symbol": "Contractor"
-                                  }
-                                ]
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "recipient"
-                              },
-                              "val": {
-                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARQG5"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "token"
-                              },
-                              "val": {
-                                "vec": [
-                                  {
-                                    "symbol": "XLM"
-                                  }
-                                ]
-                              }
-                            }
-                          ]
-                        },
-                        {
-                          "map": [
-                            {
-                              "key": {
-                                "symbol": "amount"
-                              },
-                              "val": {
-                                "i128": "12000"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "payee_id"
-                              },
-                              "val": {
-                                "u64": "4"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "payee_type"
-                              },
-                              "val": {
-                                "vec": [
-                                  {
-                                    "symbol": "Freelancer"
-                                  }
-                                ]
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "recipient"
-                              },
-                              "val": {
-                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "token"
-                              },
-                              "val": {
-                                "vec": [
-                                  {
-                                    "symbol": "USDC"
-                                  }
-                                ]
-                              }
-                            }
-                          ]
-                        },
-                        {
-                          "map": [
-                            {
-                              "key": {
-                                "symbol": "amount"
-                              },
-                              "val": {
-                                "i128": "9000"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "payee_id"
-                              },
-                              "val": {
-                                "u64": "5"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "payee_type"
-                              },
-                              "val": {
-                                "vec": [
-                                  {
-                                    "symbol": "Vendor"
-                                  }
-                                ]
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "recipient"
-                              },
-                              "val": {
-                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVAX5"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "token"
-                              },
-                              "val": {
-                                "vec": [
-                                  {
-                                    "symbol": "XLM"
-                                  }
-                                ]
-                              }
-                            }
-                          ]
                         }
                       ]
                     }
@@ -1603,7 +1652,7 @@
                               "symbol": "delta"
                             },
                             "val": {
-                              "bytes": "1d3734f9988c481d1818d865cb1ce0b8e62be747f42ebc5d75e28302f6c93d80010abe8f85bdc8b1fc58bfb6c2f47071513e766338064b35e9177c7ff9128ab0106cb54f22412bfe674ddaadf32eef9b9bbabac937b8d9cd94ab9a4e26fcb3b92a69af997a1d2b3ad8ddd404938a8fde641e3a71ee1b7bbb09d6340efbc6c8a3"
+                              "bytes": "0a924bbb16eb9ff02e7456c77b4b9851b132f10fc8d4557220cc9fd37df64f2f0f2a3286f49584655e6b48c9dcb6b30b56043124b6add500ea61e94dbf3df244124e8203175bdc3342cfbc0f0899357cecad877edd3ccff453cbc89a504df9362de73182c7157b92b4f58bb4dcfdaa1bf260bc7109dd9ee82468663ed9a7459e"
                             }
                           },
                           {

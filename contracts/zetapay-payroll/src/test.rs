@@ -14,7 +14,7 @@ use crate::{
 use soroban_sdk::{
     crypto::bn254::{Bn254Fr, Bn254G1Affine, Bn254G2Affine},
     testutils::Address as _,
-    Address, BytesN, Env, Vec,
+    Address, Bytes, BytesN, Env, Vec,
 };
 
 use zetapay_verifier::{Proof, VerificationKey, ZetaPayVerifier};
@@ -75,6 +75,25 @@ fn make_commitment_root(env: &Env) -> Bn254Fr {
     Bn254Fr::from_bytes(BytesN::from_array(env, &REAL_SIGNALS[0]))
 }
 
+fn make_encrypted_payroll(env: &Env) -> Bytes {
+    Bytes::from_slice(
+        env,
+        b"iv.auth.ciphertext.full.encrypted.payroll.audit.payload",
+    )
+}
+
+fn make_encrypted_notes(env: &Env) -> Vec<Bytes> {
+    let mut notes = Vec::new(env);
+
+    notes.push_back(Bytes::from_slice(env, b"iv.auth.ciphertext.employee.note.1"));
+    notes.push_back(Bytes::from_slice(env, b"iv.auth.ciphertext.employee.note.2"));
+    notes.push_back(Bytes::from_slice(env, b"iv.auth.ciphertext.employee.note.3"));
+    notes.push_back(Bytes::from_slice(env, b"iv.auth.ciphertext.employee.note.4"));
+    notes.push_back(Bytes::from_slice(env, b"iv.auth.ciphertext.employee.note.5"));
+
+    notes
+}
+
 fn make_payments(env: &Env) -> Vec<PayrollPayment> {
     let mut payments = Vec::new(env);
 
@@ -122,7 +141,7 @@ fn make_payments(env: &Env) -> Vec<PayrollPayment> {
 }
 
 #[test]
-fn submit_batch_verifies_real_groth16_proof_and_stores_record() {
+fn submit_batch_verifies_real_groth16_proof_and_stores_encrypted_record() {
     let env = Env::default();
     env.mock_all_auths();
 
@@ -143,6 +162,8 @@ fn submit_batch_verifies_real_groth16_proof_and_stores_record() {
     let payments = make_payments(&env);
     let proof = make_proof(&env);
     let public_inputs = make_public_inputs(&env);
+    let encrypted_payroll = make_encrypted_payroll(&env);
+    let encrypted_notes = make_encrypted_notes(&env);
 
     let payroll_run_hash = BytesN::from_array(&env, &[7u8; 32]);
     let commitment_root = make_commitment_root(&env);
@@ -158,6 +179,8 @@ fn submit_batch_verifies_real_groth16_proof_and_stores_record() {
         &0u32,
         &1u32,
         &commitment_root,
+        &encrypted_payroll,
+        &encrypted_notes,
     );
 
     assert!(submit.is_ok());
@@ -175,6 +198,8 @@ fn submit_batch_verifies_real_groth16_proof_and_stores_record() {
     assert_eq!(record.batch.total_amount, 36000);
     assert_eq!(record.batch.total_xlm, 21000);
     assert_eq!(record.batch.total_usdc, 15000);
+    assert_eq!(record.batch.encrypted_payroll, encrypted_payroll);
+    assert_eq!(record.batch.encrypted_notes.len(), 5);
     assert!(!record.batch.is_executed);
 }
 
@@ -206,6 +231,8 @@ fn execute_batch_transfers_xlm_and_usdc_once() {
     let payments = make_payments(&env);
     let proof = make_proof(&env);
     let public_inputs = make_public_inputs(&env);
+    let encrypted_payroll = make_encrypted_payroll(&env);
+    let encrypted_notes = make_encrypted_notes(&env);
 
     let first_xlm_recipient = payments.get(0).unwrap().recipient;
     let first_usdc_recipient = payments.get(1).unwrap().recipient;
@@ -224,6 +251,8 @@ fn execute_batch_transfers_xlm_and_usdc_once() {
         &0u32,
         &1u32,
         &commitment_root,
+        &encrypted_payroll,
+        &encrypted_notes,
     );
 
     assert!(submit.is_ok());
@@ -233,7 +262,7 @@ fn execute_batch_transfers_xlm_and_usdc_once() {
 
     let batch_id = inner.unwrap();
 
-    let execute = payroll.try_execute_batch(&employer, &batch_id);
+    let execute = payroll.try_execute_batch(&employer, &batch_id, &payments);
     assert!(execute.is_ok());
     assert!(execute.unwrap().is_ok());
 
@@ -248,8 +277,9 @@ fn execute_batch_transfers_xlm_and_usdc_once() {
 
     let record = payroll.get_payroll_record(&employer, &batch_id);
     assert!(record.batch.is_executed);
+    assert_eq!(record.batch.encrypted_notes.len(), 5);
 
-    let second_execute = payroll.try_execute_batch(&employer, &batch_id);
+    let second_execute = payroll.try_execute_batch(&employer, &batch_id, &payments);
     assert!(second_execute.is_err());
 }
 
@@ -275,6 +305,8 @@ fn submit_batch_rejects_duplicate_proof() {
     let payments = make_payments(&env);
     let proof = make_proof(&env);
     let public_inputs = make_public_inputs(&env);
+    let encrypted_payroll = make_encrypted_payroll(&env);
+    let encrypted_notes = make_encrypted_notes(&env);
 
     let payroll_run_hash = BytesN::from_array(&env, &[7u8; 32]);
     let commitment_root = make_commitment_root(&env);
@@ -290,6 +322,8 @@ fn submit_batch_rejects_duplicate_proof() {
         &0u32,
         &1u32,
         &commitment_root,
+        &encrypted_payroll,
+        &encrypted_notes,
     );
 
     assert!(first_submit.is_ok());
@@ -306,6 +340,8 @@ fn submit_batch_rejects_duplicate_proof() {
         &0u32,
         &1u32,
         &commitment_root,
+        &encrypted_payroll,
+        &encrypted_notes,
     );
 
     assert!(second_submit.is_err());
@@ -339,6 +375,8 @@ fn submit_batch_rejects_payment_totals_that_do_not_match_proof() {
 
     let proof = make_proof(&env);
     let public_inputs = make_public_inputs(&env);
+    let encrypted_payroll = make_encrypted_payroll(&env);
+    let encrypted_notes = make_encrypted_notes(&env);
 
     let payroll_run_hash = BytesN::from_array(&env, &[7u8; 32]);
     let commitment_root = make_commitment_root(&env);
@@ -354,6 +392,8 @@ fn submit_batch_rejects_payment_totals_that_do_not_match_proof() {
         &0u32,
         &1u32,
         &commitment_root,
+        &encrypted_payroll,
+        &encrypted_notes,
     );
 
     assert!(submit.is_err());
@@ -379,7 +419,9 @@ fn execute_batch_rejects_unknown_batch() {
     assert!(init.is_ok());
     assert!(init.unwrap().is_ok());
 
-    let execute = payroll.try_execute_batch(&employer, &999u64);
+    let payments = make_payments(&env);
+
+    let execute = payroll.try_execute_batch(&employer, &999u64, &payments);
 
     assert!(execute.is_err());
 }
@@ -412,6 +454,8 @@ fn payroll_run_summary_tracks_submission_and_execution() {
     let payments = make_payments(&env);
     let proof = make_proof(&env);
     let public_inputs = make_public_inputs(&env);
+    let encrypted_payroll = make_encrypted_payroll(&env);
+    let encrypted_notes = make_encrypted_notes(&env);
 
     let payroll_run_hash = BytesN::from_array(&env, &[7u8; 32]);
     let commitment_root = make_commitment_root(&env);
@@ -427,6 +471,8 @@ fn payroll_run_summary_tracks_submission_and_execution() {
         &0u32,
         &1u32,
         &commitment_root,
+        &encrypted_payroll,
+        &encrypted_notes,
     );
 
     assert!(submit.is_ok());
@@ -445,7 +491,7 @@ fn payroll_run_summary_tracks_submission_and_execution() {
     assert!(summary_after_submit.is_complete);
     assert!(!summary_after_submit.is_fully_executed);
 
-    let execute = payroll.try_execute_batch(&employer, &batch_id);
+    let execute = payroll.try_execute_batch(&employer, &batch_id, &payments);
     assert!(execute.is_ok());
     assert!(execute.unwrap().is_ok());
 
@@ -481,6 +527,8 @@ fn submit_batch_rejects_wrong_commitment_root() {
     let payments = make_payments(&env);
     let proof = make_proof(&env);
     let public_inputs = make_public_inputs(&env);
+    let encrypted_payroll = make_encrypted_payroll(&env);
+    let encrypted_notes = make_encrypted_notes(&env);
 
     let payroll_run_hash = BytesN::from_array(&env, &[7u8; 32]);
 
@@ -497,6 +545,55 @@ fn submit_batch_rejects_wrong_commitment_root() {
         &0u32,
         &1u32,
         &wrong_commitment_root,
+        &encrypted_payroll,
+        &encrypted_notes,
+    );
+
+    assert!(submit.is_err());
+    assert_eq!(payroll.get_batch_count(&employer), 0);
+}
+
+#[test]
+fn submit_batch_rejects_missing_encrypted_payload() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let employer = Address::generate(&env);
+    let verifier = deploy_verifier(&env);
+    let payroll = deploy_payroll(&env);
+
+    let xlm_token = token_contract(&env, &employer);
+    let usdc_token = token_contract(&env, &employer);
+
+    let vk = make_vk(&env);
+
+    let init = payroll.try_initialize(&employer, &verifier, &xlm_token, &usdc_token, &vk);
+
+    assert!(init.is_ok());
+    assert!(init.unwrap().is_ok());
+
+    let payments = make_payments(&env);
+    let proof = make_proof(&env);
+    let public_inputs = make_public_inputs(&env);
+    let empty_encrypted_payroll = Bytes::new(&env);
+    let encrypted_notes = make_encrypted_notes(&env);
+
+    let payroll_run_hash = BytesN::from_array(&env, &[7u8; 32]);
+    let commitment_root = make_commitment_root(&env);
+
+    let submit = payroll.try_submit_batch(
+        &employer,
+        &payments,
+        &proof,
+        &public_inputs,
+        &payroll_run_hash,
+        &987654321u64,
+        &202601u64,
+        &0u32,
+        &1u32,
+        &commitment_root,
+        &empty_encrypted_payroll,
+        &encrypted_notes,
     );
 
     assert!(submit.is_err());

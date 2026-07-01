@@ -10,23 +10,17 @@ type PublicVerificationResponse = {
   verified: boolean;
   payrollRun: {
     id: number;
-    companyName: string | null;
-    periodStart: string;
-    periodEnd: string;
-    totalXlm: string;
-    totalUsdc: string;
-    payeeCount: number | null;
-    batchSize: number | null;
-    batchCount: number | null;
     batchRoot: string | null;
     payrollRunHash: string | null;
     proofHash: string | null;
+    batchCount: number | null;
     status: string | null;
+    txHash: string | null;
     createdAt: string;
+    encryptedPayrollRecords: boolean;
   };
   proof: {
     proofHash: string;
-    publicInputs: unknown;
     isValid: boolean | null;
     generatedAt: string;
   } | null;
@@ -92,44 +86,31 @@ export default function PublicPayrollVerificationPage() {
               ZetaPay Public Payroll Proof
             </div>
 
-            <h1 className="mt-4 text-3xl font-bold">Payroll proof verified</h1>
+            <h1 className="mt-4 text-3xl font-bold">Confidential payroll proof verified</h1>
 
             <p className="mt-2 max-w-2xl text-sm text-emerald-50/80">
-              This public page verifies the payroll batch without exposing employee names, wallets,
-              or individual salaries.
+              This public page verifies the payroll proof without exposing payroll rows, employee
+              names, wallets, roles, periods, or salary metadata.
             </p>
           </div>
 
-          <CardContent className="grid gap-4 p-6 md:grid-cols-4">
-            <Metric label="Status" value={data.verified ? 'Verified record' : 'Incomplete'} />
-            <Metric label="Company" value={data.payrollRun.companyName || 'Private company'} />
-            <Metric label="Payees" value={`${data.payrollRun.payeeCount || 0}`} />
-            <Metric label="Batches" value={`${data.payrollRun.batchCount || 1}`} />
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
           <CardContent className="grid gap-4 p-6 md:grid-cols-3">
-            <Metric label="Total XLM" value={`${data.payrollRun.totalXlm || '0'} XLM`} />
-            <Metric label="Total USDC" value={`${data.payrollRun.totalUsdc || '0'} USDC`} />
-            <Metric
-              label="Period"
-              value={`${new Date(data.payrollRun.periodStart).toLocaleDateString()} to ${new Date(
-                data.payrollRun.periodEnd
-              ).toLocaleDateString()}`}
-            />
+            <Metric label="Status" value={data.verified ? 'Verified' : 'Incomplete'} />
+            <Metric label="Payroll records" value="Encrypted" />
+            <Metric label="Batches" value={`${data.payrollRun.batchCount || 1}`} />
           </CardContent>
         </Card>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
           <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
             <CardContent className="p-6">
-              <h2 className="text-lg font-semibold text-slate-900">Proof details</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Public proof metadata</h2>
 
               <div className="mt-5 space-y-4">
                 <HashRow label="Batch root" value={data.payrollRun.batchRoot} />
                 <HashRow label="Payroll run hash" value={data.payrollRun.payrollRunHash} />
                 <HashRow label="Proof hash" value={data.payrollRun.proofHash} />
+                <HashRow label="Transaction hash" value={data.payrollRun.txHash} />
               </div>
             </CardContent>
           </Card>
@@ -142,11 +123,13 @@ export default function PublicPayrollVerificationPage() {
               </div>
 
               <div className="mt-5 space-y-3">
+                <Check label="Payroll rows encrypted" />
                 <Check label="No employee names exposed" />
-                <Check label="No wallets exposed" />
+                <Check label="No payroll wallets exposed here" />
                 <Check label="No individual salaries exposed" />
+                <Check label="No audit report exposed" />
                 <Check label="Merkle root present" />
-                <Check label="Proof hash present" />
+                <Check label="Groth16 proof hash present" />
               </div>
             </CardContent>
           </Card>

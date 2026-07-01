@@ -1,10 +1,4 @@
-use soroban_sdk::{
-    contracttype,
-    crypto::bn254::Bn254Fr,
-    Address,
-    BytesN,
-    Vec,
-};
+use soroban_sdk::{contracttype, crypto::bn254::Bn254Fr, Address, Bytes, BytesN, Vec};
 
 #[derive(Clone)]
 #[contracttype]
@@ -47,6 +41,8 @@ pub struct PayrollBatch {
     pub total_amount: i128,
     pub total_xlm: i128,
     pub total_usdc: i128,
+    pub encrypted_payroll: Bytes,
+    pub encrypted_notes: Vec<Bytes>,
     pub is_executed: bool,
 }
 
@@ -69,5 +65,4 @@ pub struct PayrollRunSummary {
 #[contracttype]
 pub struct PayrollRecord {
     pub batch: PayrollBatch,
-    pub payments: Vec<PayrollPayment>,
 }

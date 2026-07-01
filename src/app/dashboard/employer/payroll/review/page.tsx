@@ -77,8 +77,8 @@ type PayrollErrorResponse = {
 const progressSteps = [
   'Preparing private payroll commitments',
   'Generating Groth16 proof',
-  'Initializing employer contract state',
-  'Signing payroll transaction with Freighter',
+  'Encrypting payroll records and employee notes',
+  'Signing settlement transaction with Freighter',
   'Saving audit and verification records',
 ];
 
@@ -273,7 +273,7 @@ export default function PayrollReviewPage() {
       <div className="space-y-6">
         <PageHeader
           title="Payroll Review"
-          description="Confirm payroll details before generating the proof and executing payroll on Stellar."
+          description="Confirm payroll details before generating the proof, encrypting payroll records, and executing settlement on Stellar."
           backLink={{ href: ROUTES.employer.payrollNew, label: 'Back to Builder' }}
         />
 
@@ -316,9 +316,10 @@ function PayrollProgressOverlay({ currentStep }: { currentStep: number }) {
             </div>
 
             <div>
-              <h2 className="text-xl font-bold">Executing ZetaPay payroll</h2>
+              <h2 className="text-xl font-bold">Executing Confidential payroll</h2>
               <p className="mt-1 text-sm text-emerald-50/80">
-                Generating proof, signing with Freighter, and sending payroll.
+                Generating zero knowledge proof, encrypting payroll records, and settling payroll on
+                Stellar.
               </p>
             </div>
           </div>

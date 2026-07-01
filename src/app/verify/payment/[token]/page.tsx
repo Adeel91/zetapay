@@ -9,29 +9,34 @@ import { Card, CardContent } from '@/components/ui/Card';
 
 type EmployeePaymentVerificationResponse = {
   verified: boolean;
+  verification: {
+    verified: boolean;
+    reason: string | null;
+    merkleRoot: string | null;
+  };
   payment: {
-    employeeName: string;
-    employeeEmail: string | null;
-    employeeType: string | null;
     companyName: string;
     payrollRunId: number;
-    periodStart: string;
-    periodEnd: string;
+    periodStart?: string;
+    periodEnd?: string;
     batchRoot: string | null;
     payrollRunHash: string | null;
     proofHash: string | null;
     payrollStatus: string | null;
     payrollEmployeeId: number;
-    amount: string;
-    currency: string | null;
+    amount?: string;
+    atomicAmount?: string;
+    currency?: string;
+    employeeType?: string;
+    walletAddress?: string;
     paymentStatus: string | null;
-    commitment: string | null;
-    merklePath: unknown;
-    pathIndices: unknown;
+    commitment?: string;
+    merkleRoot?: string | null;
     txHash: string | null;
     expiresAt: string;
     usedAt: string | null;
     paymentVerifiedAt: string | null;
+    source: string;
   };
 };
 
@@ -121,31 +126,39 @@ export default function EmployeePaymentVerificationPage() {
           <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 px-6 py-8 text-white">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm text-emerald-50">
               <ShieldCheck className="h-4 w-4" />
-              ZetaPay Employee Payment Verification
+              ZetaPay Encrypted Employee Note
             </div>
 
-            <h1 className="mt-4 text-3xl font-bold">Your payment is included</h1>
+            <h1 className="mt-4 text-3xl font-bold">Your payment note is verified</h1>
 
             <p className="mt-2 max-w-2xl text-sm text-emerald-50/80">
-              This private link only shows your payment details and your inclusion proof.
+              This private link decrypts only your employee note and verifies it against the
+              committed payroll root.
             </p>
           </div>
 
           <CardContent className="grid gap-4 p-6 md:grid-cols-3">
-            <Metric label="Employee" value={payment.employeeName} />
             <Metric label="Company" value={payment.companyName} />
+            <Metric label="Record source" value="Encrypted note" />
             <Metric label="Status" value={data.verified ? 'Verified' : 'Incomplete'} />
           </CardContent>
         </Card>
 
         <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
           <CardContent className="grid gap-4 p-6 md:grid-cols-3">
-            <Metric label="Amount" value={`${payment.amount} ${payment.currency || 'USDC'}`} />
+            <Metric
+              label="Amount"
+              value={`${payment.amount || '0'} ${payment.currency || 'USDC'}`}
+            />
             <Metric
               label="Period"
-              value={`${new Date(payment.periodStart).toLocaleDateString()} to ${new Date(
-                payment.periodEnd
-              ).toLocaleDateString()}`}
+              value={
+                payment.periodStart && payment.periodEnd
+                  ? `${new Date(payment.periodStart).toLocaleDateString()} to ${new Date(
+                      payment.periodEnd
+                    ).toLocaleDateString()}`
+                  : 'Encrypted'
+              }
             />
             <Metric label="Payment status" value={payment.paymentStatus || 'pending'} />
           </CardContent>
@@ -153,15 +166,46 @@ export default function EmployeePaymentVerificationPage() {
 
         <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
           <CardContent className="p-6">
-            <h2 className="text-lg font-semibold text-slate-900">Your inclusion proof</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Decrypted employee note</h2>
 
             <div className="mt-5 space-y-4">
+              <HashRow label="Recipient wallet from encrypted note" value={payment.walletAddress} />
+              <HashRow label="Employee type from encrypted note" value={payment.employeeType} />
               <HashRow label="Your commitment" value={payment.commitment} />
+              <HashRow label="Recomputed Merkle root" value={payment.merkleRoot} />
               <HashRow label="Payroll batch root" value={payment.batchRoot} />
               <HashRow label="Payroll run hash" value={payment.payrollRunHash} />
               <HashRow label="Proof hash" value={payment.proofHash} />
               <HashRow label="Transaction hash" value={payment.txHash} />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              <h2 className="text-lg font-semibold text-slate-900">Cryptographic checks</h2>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <Check label="Encrypted employee note decrypted" checked />
+              <Check
+                label="Commitment found in encrypted payroll commitment list"
+                checked={data.verification.verified}
+              />
+              <Check
+                label="Merkle root matches payroll batch root"
+                checked={data.verification.verified}
+              />
+              <Check label="Groth16 proof hash present" checked={Boolean(payment.proofHash)} />
+            </div>
+
+            {!data.verification.verified && data.verification.reason && (
+              <p className="mt-4 rounded-2xl bg-amber-50 p-3 text-sm text-amber-700">
+                {data.verification.reason}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -177,7 +221,7 @@ export default function EmployeePaymentVerificationPage() {
                 <p className="mt-2 text-sm text-slate-500">
                   {alreadyConfirmed
                     ? 'You have already confirmed this payment verification.'
-                    : 'Confirm that you viewed and verified this payment record.'}
+                    : 'Confirm that you viewed and verified this encrypted payment note.'}
                 </p>
               </div>
 
@@ -210,8 +254,21 @@ function HashRow({ label, value }: { label: string; value?: string | null }) {
     <div>
       <p className="text-xs font-medium tracking-wider text-slate-400 uppercase">{label}</p>
       <p className="mt-1 rounded-2xl bg-slate-50 p-3 font-mono text-xs break-all text-slate-700">
-        {value || 'Not available yet'}
+        {value || 'Not available'}
       </p>
+    </div>
+  );
+}
+
+function Check({ label, checked }: { label: string; checked: boolean }) {
+  return (
+    <div
+      className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium ${
+        checked ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+      }`}
+    >
+      <CheckCircle2 className="h-4 w-4" />
+      {label}
     </div>
   );
 }

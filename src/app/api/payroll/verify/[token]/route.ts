@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { enterprises, payrollRuns, zkProofs } from '@/lib/db/schema';
 import { sha256Hex } from '@/lib/zk/payroll-batch';
+import { getPayrollRecordFromChain } from '@/lib/zetapay/contracts/payroll';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }) {
   try {
@@ -15,52 +16,55 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
 
     const tokenHash = sha256Hex(token);
 
-    const rows = await db
+    const [row] = await db
       .select({
-        id: payrollRuns.id,
-        enterpriseId: payrollRuns.enterpriseId,
-        companyName: enterprises.companyName,
-        periodStart: payrollRuns.periodStart,
-        periodEnd: payrollRuns.periodEnd,
-        totalXlm: payrollRuns.totalXlm,
-        totalUsdc: payrollRuns.totalUsdc,
-        payeeCount: payrollRuns.payeeCount,
-        batchSize: payrollRuns.batchSize,
-        batchCount: payrollRuns.batchCount,
-        batchRoot: payrollRuns.batchRoot,
-        payrollRunHash: payrollRuns.payrollRunHash,
-        proofHash: payrollRuns.proofHash,
+        payrollRunId: payrollRuns.id,
+        contractBatchId: payrollRuns.contractBatchId,
+        txHash: payrollRuns.txHash,
         status: payrollRuns.status,
-        createdAt: payrollRuns.createdAt,
+        employerWallet: enterprises.walletAddress,
       })
       .from(payrollRuns)
-      .leftJoin(enterprises, eq(payrollRuns.enterpriseId, enterprises.id))
+      .innerJoin(enterprises, eq(payrollRuns.enterpriseId, enterprises.id))
       .where(eq(payrollRuns.publicVerificationTokenHash, tokenHash))
       .limit(1)
       .execute();
 
-    const payrollRun = rows[0];
-
-    if (!payrollRun) {
+    if (!row || !row.contractBatchId || !row.employerWallet) {
       return NextResponse.json({ error: 'Payroll proof record not found' }, { status: 404 });
     }
 
-    const proofRows = await db
+    const chainRecord = await getPayrollRecordFromChain({
+      employer: row.employerWallet,
+      batchId: row.contractBatchId,
+    });
+
+    const [proof] = await db
       .select()
       .from(zkProofs)
-      .where(eq(zkProofs.payrollRunId, payrollRun.id))
+      .where(eq(zkProofs.payrollRunId, row.payrollRunId))
       .limit(1)
       .execute();
 
-    const proof = proofRows[0];
-
     return NextResponse.json({
-      verified: Boolean(payrollRun.batchRoot && payrollRun.proofHash),
-      payrollRun,
+      verified: Boolean(
+        chainRecord.batch.commitmentRoot && chainRecord.batch.proofHash && proof?.isValid
+      ),
+      payrollRun: {
+        id: row.payrollRunId,
+        status: row.status,
+        txHash: row.txHash,
+        batchRoot: chainRecord.batch.commitmentRoot,
+        proofHash: chainRecord.batch.proofHash,
+        payrollRunHash: chainRecord.batch.payrollRunHash,
+        batchCount: chainRecord.batch.batch_count,
+        paymentCount: chainRecord.batch.payment_count,
+        encryptedPayrollRecords: true,
+        source: 'soroban_contract',
+      },
       proof: proof
         ? {
             proofHash: proof.proofHash,
-            publicInputs: proof.publicInputs,
             isValid: proof.isValid,
             generatedAt: proof.generatedAt,
           }

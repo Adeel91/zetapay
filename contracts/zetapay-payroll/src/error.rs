@@ -16,4 +16,5 @@ pub enum PayrollError {
     TokenNotRegistered = 10,
     PaymentFailed = 11,
     AlreadyExecuted = 12,
+    MissingEncryptedPayload = 13,
 }

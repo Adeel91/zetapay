@@ -49,6 +49,8 @@ type StoredSorobanPayload = {
   batchIndex: number;
   batchCount: number;
   commitmentRootHex: string;
+  encryptedPayroll: string;
+  encryptedNotes: string[];
 };
 
 const EMPLOYEE_LINK_EXPIRY_DAYS = 30;
@@ -116,15 +118,11 @@ async function getSessionEnterprise() {
   const cookieStore = await cookies();
   const enterpriseIdStr = cookieStore.get('enterpriseId')?.value;
 
-  if (!enterpriseIdStr) {
-    return null;
-  }
+  if (!enterpriseIdStr) return null;
 
   const enterpriseId = Number.parseInt(enterpriseIdStr, 10);
 
-  if (Number.isNaN(enterpriseId)) {
-    return null;
-  }
+  if (Number.isNaN(enterpriseId)) return null;
 
   const [enterprise] = await db
     .select()
@@ -133,9 +131,7 @@ async function getSessionEnterprise() {
     .limit(1)
     .execute();
 
-  if (!enterprise || !enterprise.isActive) {
-    return null;
-  }
+  if (!enterprise || !enterprise.isActive) return null;
 
   return enterprise;
 }
@@ -240,7 +236,10 @@ async function preparePayroll(
   body: PayrollCreateRequest,
   enterprise: typeof enterprises.$inferSelect
 ) {
-  if (!body.periodStart || !body.periodEnd) {
+  const periodStart = body.periodStart;
+  const periodEnd = body.periodEnd;
+
+  if (!periodStart || !periodEnd) {
     return NextResponse.json({ error: 'Payroll period is required' }, { status: 400 });
   }
 
@@ -290,8 +289,8 @@ async function preparePayroll(
 
   const proof = await generatePayrollProof({
     enterpriseId: enterprise.id,
-    periodStart: body.periodStart,
-    periodEnd: body.periodEnd,
+    periodStart,
+    periodEnd,
     auditKey,
     payees: orderedItems.map(({ item, employee }) => ({
       personId: item.personId,
@@ -313,6 +312,68 @@ async function preparePayroll(
     })
   );
 
+  const encryptedNotes = orderedItems.map(({ item, employee }, index) =>
+    encryptPayload({
+      scope: 'employeePayrollNote',
+      enterpriseId: enterprise.id,
+      employeeId: employee.id,
+      payrollEmployeeIndex: index,
+      personId: item.personId,
+      walletAddress: employee.walletAddress,
+      amount: item.amount,
+      atomicAmount: Math.round(Number(item.amount) * 10_000_000).toString(),
+      currency: item.currency,
+      type: employee.type || 'employee',
+      periodStart,
+      periodEnd,
+      payrollRunHash: proof.payrollRunHashHex,
+      payrollRunHashField: proof.payrollRunHashField,
+      batchRoot: proof.batchRoot,
+      commitment: String(proof.commitments[index] || ''),
+      salt: String((proof.inputJson.salts as string[])[index] || ''),
+      payeeIndex: index,
+      auditKey,
+      createdAt: new Date().toISOString(),
+    })
+  );
+
+  const encryptedPayroll = encryptPayload({
+    scope: 'fullPayrollAudit',
+    enterpriseId: enterprise.id,
+    enterpriseWallet: enterprise.walletAddress,
+    periodStart,
+    periodEnd,
+    auditKey,
+    payrollRunHash: proof.payrollRunHashHex,
+    payrollRunHashField: proof.payrollRunHashField,
+    batchRoot: proof.batchRoot,
+    batchRootHex: proof.batchRootHex,
+    proofHash: proof.payrollRunHashHex,
+    batchIndex: proof.batchIndex,
+    batchCount: proof.batchCount,
+    totals: {
+      totalGross: proof.totals.totalGrossDisplay,
+      totalXlm: proof.totals.totalXlmDisplay,
+      totalUsdc: proof.totals.totalUsdcDisplay,
+      payeeCount: orderedItems.length,
+    },
+    payees: orderedItems.map(({ item, employee }, index) => ({
+      employeeId: employee.id,
+      personId: item.personId,
+      walletAddress: employee.walletAddress,
+      amount: item.amount,
+      atomicAmount: Math.round(Number(item.amount) * 10_000_000).toString(),
+      currency: item.currency,
+      type: employee.type || 'employee',
+      commitment: String(proof.commitments[index] || ''),
+      salt: String((proof.inputJson.salts as string[])[index] || ''),
+      payeeIndex: index,
+    })),
+    commitments: proof.commitments.map(String),
+    publicSignals: proof.publicJson.map(String),
+    createdAt: new Date().toISOString(),
+  });
+
   const sorobanPayload: StoredSorobanPayload = {
     payments: chainPayments,
     proof: proof.proof,
@@ -323,6 +384,8 @@ async function preparePayroll(
     batchIndex: proof.batchIndex,
     batchCount: proof.batchCount,
     commitmentRootHex: proof.batchRoot,
+    encryptedPayroll,
+    encryptedNotes,
   };
 
   const previousPayrollRuns = await db
@@ -350,8 +413,8 @@ async function preparePayroll(
     .insert(payrollRuns)
     .values({
       enterpriseId: enterprise.id,
-      periodStart: new Date(body.periodStart),
-      periodEnd: new Date(body.periodEnd),
+      periodStart: new Date(periodStart),
+      periodEnd: new Date(periodEnd),
       totalGross: proof.totals.totalGrossDisplay.toString(),
       totalNet: proof.totals.totalGrossDisplay.toString(),
       totalTaxWithheld: '0',
@@ -379,6 +442,8 @@ async function preparePayroll(
         generatedBy: 'payroll-review',
         proofMode: 'groth16-soroban',
         employer: enterprise.walletAddress,
+        encryptedPayroll,
+        encryptedNotes,
         soroban: {
           stage: 'prepared',
           initialized,

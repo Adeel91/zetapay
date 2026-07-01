@@ -190,7 +190,7 @@ export default function EmployerPayrollDetailPage() {
     <div className="space-y-6">
       <PageHeader
         title={`Payroll #${data.id}`}
-        description="Private employer payroll report with proof data, payees, verification links, and Stellar execution records."
+        description="Private employer payroll report with encrypted payroll records, proof data, verification links, and Stellar settlement records."
         backLink={{ href: ROUTES.employer.payroll, label: 'Back to Payroll' }}
       />
 
@@ -198,14 +198,14 @@ export default function EmployerPayrollDetailPage() {
         <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 px-6 py-8 text-white">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm text-emerald-50">
             <ShieldCheck className="h-4 w-4" />
-            Private employer report
+            Confidential employer report
           </div>
 
           <h1 className="mt-4 text-3xl font-bold">Payroll proof record</h1>
 
           <p className="mt-2 max-w-2xl text-sm text-emerald-50/80">
-            This payroll was generated with Groth16 proof material and executed through the ZetaPay
-            Stellar contract.
+            This payroll was generated with Groth16 proof material, encrypted payroll records, and
+            settled through the ZetaPay Stellar contract.
           </p>
         </div>
 
@@ -280,7 +280,8 @@ export default function EmployerPayrollDetailPage() {
               <div className="min-w-0">
                 <h2 className="text-lg font-semibold text-slate-900">Public proof link</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  This public link shows totals and proof metadata only. It does not expose payees.
+                  This public link shows proof metadata only. Payroll records are encrypted and
+                  payees are not exposed.
                 </p>
 
                 <p className="mt-3 rounded-2xl bg-slate-50 p-3 font-mono text-xs break-all text-slate-700">

@@ -3,7 +3,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-import { Networks, scValToNative, Transaction, TransactionBuilder } from '@stellar/stellar-sdk';
+import {
+  Address,
+  Contract,
+  nativeToScVal,
+  Networks,
+  scValToNative,
+  Transaction,
+  TransactionBuilder,
+} from '@stellar/stellar-sdk';
 import { Server as StellarRpcServer } from '@stellar/stellar-sdk/rpc';
 
 import { zetapayConfig, validateConfig } from './config';
@@ -40,6 +48,26 @@ export type SubmitPayrollBatchInput = {
   batchIndex: number;
   batchCount: number;
   commitmentRootHex: string;
+  encryptedPayroll: string;
+  encryptedNotes: string[];
+};
+
+export type NormalizedChainPayrollRecord = {
+  batch: {
+    payrollRunHash: string;
+    proofHash: string;
+    commitmentRoot: string;
+    encryptedPayroll: string;
+    encryptedNotes: string[];
+    period_id: number | bigint;
+    batch_index: number;
+    batch_count: number;
+    payment_count: number;
+    total_amount: number | bigint;
+    total_xlm: number | bigint;
+    total_usdc: number | bigint;
+    is_executed: boolean;
+  };
 };
 
 function log(label: string, value?: unknown) {
@@ -103,15 +131,7 @@ function extractTransactionXdr(output: string) {
     const candidate = candidates[index];
 
     try {
-      const transaction = parseTransactionXdr(candidate);
-
-      log('raw xdr found', {
-        source: transaction.source,
-        sequence: transaction.sequence,
-        fee: transaction.fee,
-        operations: transaction.operations.length,
-      });
-
+      parseTransactionXdr(candidate);
       return candidate;
     } catch {
       continue;
@@ -123,36 +143,16 @@ function extractTransactionXdr(output: string) {
 
 function addTimeoutToBuiltTransaction(rawXdr: string) {
   const transaction = parseTransactionXdr(rawXdr);
-
-  log('raw xdr before timeout', {
-    source: transaction.source,
-    sequence: transaction.sequence,
-    fee: transaction.fee,
-    operations: transaction.operations.length,
-  });
-
   const maxTime = Math.floor(Date.now() / 1000) + TX_TIMEOUT_SECONDS;
 
-  const builder = TransactionBuilder.cloneFrom(transaction, {
+  return TransactionBuilder.cloneFrom(transaction, {
     fee: CONTRACT_FEE,
     networkPassphrase: networkPassphrase(),
     timebounds: {
       minTime: 0,
       maxTime,
     },
-  });
-
-  const rebuilt = builder.build();
-
-  log('rebuilt xdr with timeout', {
-    source: rebuilt.source,
-    sequence: rebuilt.sequence,
-    fee: rebuilt.fee,
-    operations: rebuilt.operations.length,
-    maxTime,
-  });
-
-  return rebuilt;
+  }).build();
 }
 
 async function prepareBuiltXdr(rawXdr: string) {
@@ -160,21 +160,9 @@ async function prepareBuiltXdr(rawXdr: string) {
 
   const server = new StellarRpcServer(zetapayConfig.rpcUrl);
   const transactionWithTimeout = addTimeoutToBuiltTransaction(rawXdr);
-
-  log('preparing soroban transaction');
-
   const prepared = await server.prepareTransaction(transactionWithTimeout);
-  const preparedXdr = prepared.toXDR();
-  const parsedPrepared = parseTransactionXdr(preparedXdr);
 
-  log('prepared soroban transaction', {
-    source: parsedPrepared.source,
-    sequence: parsedPrepared.sequence,
-    fee: parsedPrepared.fee,
-    operations: parsedPrepared.operations.length,
-  });
-
-  return preparedXdr;
+  return prepared.toXDR();
 }
 
 async function runStellarBuildOnly(args: string[]) {
@@ -188,12 +176,74 @@ function writeJsonTempFile(tempDir: string, name: string, value: unknown) {
   return filePath;
 }
 
+function stringToBytesHex(value: string) {
+  return Buffer.from(value, 'utf8').toString('hex');
+}
+
+function bytesToUtf8(value: unknown) {
+  if (typeof value === 'string') return value;
+  if (value instanceof Uint8Array) return Buffer.from(value).toString('utf8');
+  if (Buffer.isBuffer(value)) return value.toString('utf8');
+
+  return Buffer.from(String(value), 'hex').toString('utf8');
+}
+
+function bytesToHex(value: unknown) {
+  if (typeof value === 'string') return value;
+  if (value instanceof Uint8Array) return Buffer.from(value).toString('hex');
+  if (Buffer.isBuffer(value)) return value.toString('hex');
+
+  return String(value);
+}
+
 function normalizeReturnValue(value: unknown) {
   if (value === null || value === undefined) return null;
   if (typeof value === 'bigint') return Number(value);
   if (typeof value === 'number') return value;
   if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value);
   return null;
+}
+
+function normalizeChainRecord(value: unknown): NormalizedChainPayrollRecord {
+  const record = value as {
+    batch: {
+      payroll_run_hash: unknown;
+      period_id: number | bigint;
+      batch_index: number;
+      batch_count: number;
+      proof_hash: unknown;
+      commitment_root: number | bigint | string;
+      payment_count: number;
+      total_amount: number | bigint;
+      total_xlm: number | bigint;
+      total_usdc: number | bigint;
+      encrypted_payroll: unknown;
+      encrypted_notes: unknown[];
+      is_executed: boolean;
+    };
+  };
+
+  if (!record?.batch) {
+    throw new Error('Invalid Soroban payroll record shape.');
+  }
+
+  return {
+    batch: {
+      period_id: record.batch.period_id,
+      batch_index: record.batch.batch_index,
+      batch_count: record.batch.batch_count,
+      payment_count: record.batch.payment_count,
+      total_amount: record.batch.total_amount,
+      total_xlm: record.batch.total_xlm,
+      total_usdc: record.batch.total_usdc,
+      is_executed: record.batch.is_executed,
+      payrollRunHash: bytesToHex(record.batch.payroll_run_hash),
+      proofHash: bytesToHex(record.batch.proof_hash),
+      commitmentRoot: String(record.batch.commitment_root),
+      encryptedPayroll: bytesToUtf8(record.batch.encrypted_payroll),
+      encryptedNotes: record.batch.encrypted_notes.map(bytesToUtf8),
+    },
+  };
 }
 
 export async function buildInitializePayrollXdr(input: BuildInitializePayrollInput) {
@@ -242,12 +292,25 @@ export async function buildInitializePayrollXdr(input: BuildInitializePayrollInp
 export async function buildSubmitAndExecutePayrollBatchXdr(input: SubmitPayrollBatchInput) {
   validateConfig();
 
+  if (!input.encryptedPayroll) {
+    throw new Error('encryptedPayroll is required');
+  }
+
+  if (!Array.isArray(input.encryptedNotes) || input.encryptedNotes.length === 0) {
+    throw new Error('encryptedNotes are required');
+  }
+
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zetapay-submit-execute-xdr-'));
 
   try {
     const paymentsPath = writeJsonTempFile(tempDir, 'payments.json', input.payments);
     const proofPath = writeJsonTempFile(tempDir, 'proof.json', input.proof);
     const publicInputsPath = writeJsonTempFile(tempDir, 'public-inputs.json', input.publicInputs);
+    const encryptedNotesPath = writeJsonTempFile(
+      tempDir,
+      'encrypted-notes.json',
+      input.encryptedNotes.map(stringToBytesHex)
+    );
 
     return await runStellarBuildOnly([
       'contract',
@@ -283,10 +346,44 @@ export async function buildSubmitAndExecutePayrollBatchXdr(input: SubmitPayrollB
       String(input.batchCount),
       '--commitment_root',
       input.commitmentRootHex,
+      '--encrypted_payroll',
+      stringToBytesHex(input.encryptedPayroll),
+      '--encrypted_notes-file-path',
+      encryptedNotesPath,
     ]);
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+}
+
+export async function getPayrollRecordFromChain(input: { employer: string; batchId: number }) {
+  validateConfig();
+
+  const server = new StellarRpcServer(zetapayConfig.rpcUrl);
+  const account = await server.getAccount(input.employer);
+  const contract = new Contract(zetapayConfig.payrollContractId);
+
+  const operation = contract.call(
+    'get_payroll_record',
+    new Address(input.employer).toScVal(),
+    nativeToScVal(input.batchId, { type: 'u64' })
+  );
+
+  const transaction = new TransactionBuilder(account, {
+    fee: CONTRACT_FEE,
+    networkPassphrase: networkPassphrase(),
+  })
+    .addOperation(operation)
+    .setTimeout(TX_TIMEOUT_SECONDS)
+    .build();
+
+  const simulated = await server.simulateTransaction(transaction);
+
+  if (!('result' in simulated) || !simulated.result?.retval) {
+    throw new Error('Could not read payroll record from Soroban.');
+  }
+
+  return normalizeChainRecord(scValToNative(simulated.result.retval));
 }
 
 export async function sendSignedXdr(signedXdr: string) {
@@ -296,16 +393,7 @@ export async function sendSignedXdr(signedXdr: string) {
   const transaction = parseTransactionXdr(cleanSignedXdr);
   const server = new StellarRpcServer(zetapayConfig.rpcUrl);
 
-  log('sending signed transaction', {
-    source: transaction.source,
-    sequence: transaction.sequence,
-    fee: transaction.fee,
-    operations: transaction.operations.length,
-  });
-
   const sendResponse = await server.sendTransaction(transaction);
-
-  log('send response', sendResponse);
 
   if (sendResponse.status === 'ERROR') {
     throw new Error(JSON.stringify(sendResponse));
@@ -315,12 +403,6 @@ export async function sendSignedXdr(signedXdr: string) {
 
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const result = await server.getTransaction(txHash);
-
-    log('transaction status', {
-      attempt: attempt + 1,
-      status: result.status,
-      txHash,
-    });
 
     if (result.status === 'SUCCESS') {
       const nativeReturnValue = result.returnValue ? scValToNative(result.returnValue) : null;
