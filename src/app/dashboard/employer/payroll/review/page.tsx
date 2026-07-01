@@ -14,6 +14,12 @@ import { PayrollReviewActions } from '@/components/dashboard/payroll/review/Payr
 import { PayrollReviewDraft } from '@/components/dashboard/payroll/review/types';
 import { getFreighterPublicKey, signWithFreighter } from '@/lib/stellar/freighter';
 
+type PayrollMode = 'confidential_payroll' | 'shielded_pool';
+
+type PayrollReviewDraftWithMode = PayrollReviewDraft & {
+  payrollMode?: PayrollMode;
+};
+
 type PreparePayrollResult = {
   success: boolean;
   step: 'prepared';
@@ -74,21 +80,33 @@ type PayrollErrorResponse = {
   message?: string;
 };
 
-const progressSteps = [
-  'Preparing private payroll commitments',
+const confidentialProgressSteps = [
+  'Preparing encrypted payroll records',
   'Generating Groth16 proof',
-  'Encrypting payroll records and employee notes',
-  'Signing settlement transaction with Freighter',
+  'Building payroll settlement transaction',
+  'Signing transaction with Freighter',
   'Saving audit and verification records',
 ];
 
-function readDraftFromSession(): PayrollReviewDraft | null {
+const shieldedPoolProgressSteps = [
+  'Preparing shielded payroll records',
+  'Generating withdrawal proof material',
+  'Building pool deposit transaction',
+  'Signing pool deposit with Freighter',
+  'Saving employee withdrawal records',
+];
+
+function getProgressSteps(mode: PayrollMode) {
+  return mode === 'shielded_pool' ? shieldedPoolProgressSteps : confidentialProgressSteps;
+}
+
+function readDraftFromSession(): PayrollReviewDraftWithMode | null {
   const raw = window.sessionStorage.getItem('zetapayPayrollDraft');
 
   if (!raw) return null;
 
   try {
-    return JSON.parse(raw) as PayrollReviewDraft;
+    return JSON.parse(raw) as PayrollReviewDraftWithMode;
   } catch {
     return null;
   }
@@ -108,10 +126,14 @@ export default function PayrollReviewPage() {
   const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
-  const [draft, setDraft] = useState<PayrollReviewDraft | null>(null);
+  const [draft, setDraft] = useState<PayrollReviewDraftWithMode | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [progressIndex, setProgressIndex] = useState(0);
+
+  const payrollMode: PayrollMode = draft?.payrollMode || 'confidential_payroll';
+  const payrollEndpoint = payrollMode === 'shielded_pool' ? '/api/payroll/pool' : '/api/payroll';
+  const progressSteps = getProgressSteps(payrollMode);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -128,7 +150,7 @@ export default function PayrollReviewPage() {
     }, 3000);
 
     return () => window.clearInterval(timer);
-  }, [generating]);
+  }, [generating, progressSteps.length]);
 
   const validation = useMemo(() => {
     const items = draft?.items ?? [];
@@ -144,7 +166,7 @@ export default function PayrollReviewPage() {
   const canGenerate =
     validation.hasPayees && validation.allWalletsValid && validation.allAmountsValid;
 
-  async function handleGenerateProof() {
+  async function handlePrimaryAction() {
     if (!draft || generating) return;
 
     setGenerating(true);
@@ -156,7 +178,7 @@ export default function PayrollReviewPage() {
 
       setProgressIndex(1);
 
-      const prepareResponse = await fetch('/api/payroll', {
+      const prepareResponse = await fetch(payrollEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -164,6 +186,7 @@ export default function PayrollReviewPage() {
           walletAddress,
           periodStart: draft.periodStart,
           periodEnd: draft.periodEnd,
+          payrollMode,
           items: draft.items.map((item) => ({
             personId: item.personId,
             amount: item.amount,
@@ -185,7 +208,7 @@ export default function PayrollReviewPage() {
       if (prepared.initializeXdr) {
         const signedInitializeXdr = await signWithFreighter(prepared.initializeXdr, walletAddress);
 
-        const initializeResponse = await fetch('/api/payroll', {
+        const initializeResponse = await fetch(payrollEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -208,7 +231,7 @@ export default function PayrollReviewPage() {
 
       const signedSubmitXdr = await signWithFreighter(submitXdr, walletAddress);
 
-      const submitResponse = await fetch('/api/payroll', {
+      const submitResponse = await fetch(payrollEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -228,7 +251,7 @@ export default function PayrollReviewPage() {
 
       router.push(ROUTES.employer.payrollDetails(String(executed.payrollRunId)));
     } catch (error) {
-      setGenerationError(error instanceof Error ? error.message : 'Failed to generate payroll');
+      setGenerationError(error instanceof Error ? error.message : 'Failed to process payroll');
       setGenerating(false);
     }
   }
@@ -252,7 +275,7 @@ export default function PayrollReviewPage() {
           <h1 className="mt-5 text-2xl font-bold text-slate-900">No payroll draft found</h1>
 
           <p className="mt-2 text-sm text-slate-500">
-            Create a payroll run first, then return here to review and generate proof material.
+            Create a payroll run first, then return here to review and continue.
           </p>
 
           <Button
@@ -268,16 +291,30 @@ export default function PayrollReviewPage() {
 
   return (
     <>
-      {generating && <PayrollProgressOverlay currentStep={progressIndex} />}
+      {generating && (
+        <PayrollProgressOverlay currentStep={progressIndex} payrollMode={payrollMode} />
+      )}
 
       <div className="space-y-6">
         <PageHeader
           title="Payroll Review"
-          description="Confirm payroll details before generating the proof, encrypting payroll records, and executing settlement on Stellar."
+          description="Confirm payroll details before approving the Stellar transaction."
           backLink={{ href: ROUTES.employer.payrollNew, label: 'Back to Builder' }}
         />
 
         <PayrollReviewHeader draft={draft} />
+
+        <div
+          className={
+            payrollMode === 'shielded_pool'
+              ? 'rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800'
+              : 'rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm font-medium text-blue-800'
+          }
+        >
+          {payrollMode === 'shielded_pool'
+            ? 'Shielded pool mode is enabled. Employer funds will be deposited into the pool contract. Employees can withdraw later using their proof.'
+            : 'Confidential payroll mode is active. Payroll is encrypted and settled via Stellar. Certain transaction details remain public.'}
+        </div>
 
         {generationError && (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
@@ -293,8 +330,9 @@ export default function PayrollReviewPage() {
               canGenerate={canGenerate}
               generating={generating}
               generated={false}
+              payrollMode={payrollMode}
               onBack={() => router.push(ROUTES.employer.payrollNew)}
-              onGenerate={handleGenerateProof}
+              onGenerate={handlePrimaryAction}
             />
           </div>
 
@@ -305,7 +343,25 @@ export default function PayrollReviewPage() {
   );
 }
 
-function PayrollProgressOverlay({ currentStep }: { currentStep: number }) {
+function PayrollProgressOverlay({
+  currentStep,
+  payrollMode,
+}: {
+  currentStep: number;
+  payrollMode: PayrollMode;
+}) {
+  const progressSteps = getProgressSteps(payrollMode);
+
+  const title =
+    payrollMode === 'shielded_pool'
+      ? 'Depositing to Shielded Pool'
+      : 'Executing Confidential Payroll';
+
+  const description =
+    payrollMode === 'shielded_pool'
+      ? 'Preparing shielded payroll records, funding the pool, and saving employee withdrawal data.'
+      : 'Generating proof material, encrypting payroll records, and settling payroll on Stellar.';
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
       <div className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl">
@@ -316,11 +372,8 @@ function PayrollProgressOverlay({ currentStep }: { currentStep: number }) {
             </div>
 
             <div>
-              <h2 className="text-xl font-bold">Executing Confidential payroll</h2>
-              <p className="mt-1 text-sm text-emerald-50/80">
-                Generating zero knowledge proof, encrypting payroll records, and settling payroll on
-                Stellar.
-              </p>
+              <h2 className="text-xl font-bold">{title}</h2>
+              <p className="mt-1 text-sm text-emerald-50/80">{description}</p>
             </div>
           </div>
         </div>
@@ -384,7 +437,7 @@ function PayrollProgressOverlay({ currentStep }: { currentStep: number }) {
 
           <div className="mt-5 flex items-center gap-2 rounded-2xl bg-slate-50 p-3 text-xs text-slate-500">
             <WalletCards className="h-4 w-4 text-slate-400" />
-            Keep this window open while payroll is being executed.
+            Keep this window open while payroll is being processed.
           </div>
         </div>
       </div>

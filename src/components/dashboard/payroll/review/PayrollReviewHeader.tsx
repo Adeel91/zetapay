@@ -5,7 +5,7 @@ import { PayrollReviewDraft } from './types';
 export function PayrollReviewHeader({ draft }: { draft: PayrollReviewDraft }) {
   return (
     <Card className="overflow-hidden border-0 bg-white shadow-xl shadow-slate-200/50">
-      <div className="relative mb-10 overflow-hidden bg-gradient-to-br from-emerald-600 to-emerald-800 px-6 py-6 text-white">
+      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 to-emerald-800 px-6 py-6 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_35%)]" />
 
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">

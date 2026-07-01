@@ -18,6 +18,10 @@ import { PayrollSummaryCard } from '@/components/dashboard/payroll/run-builder/P
 import { PayrollNextStepsCard } from '@/components/dashboard/payroll/run-builder/PayrollNextStepsCard';
 import { PayrollWalletFundingCard } from '@/components/dashboard/payroll/run-builder/PayrollWalletFundingCard';
 import {
+  PayrollMode,
+  PayrollSettlementModeCard,
+} from '@/components/dashboard/payroll/run-builder/PayrollSettlementModeCard';
+import {
   PayrollDraftItem,
   SelectedPayrollPerson,
   TypeFilter,
@@ -51,6 +55,7 @@ export default function NewPayrollRunPage() {
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [balanceError, setBalanceError] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [payrollMode, setPayrollMode] = useState<PayrollMode>('confidential_payroll');
 
   const fetchBalance = useCallback(async () => {
     setBalanceLoading(true);
@@ -264,6 +269,7 @@ export default function NewPayrollRunPage() {
     const payload = {
       periodStart,
       periodEnd,
+      payrollMode,
       items: selectedPeople.map(({ person, item }) => ({
         personId: item.personId,
         name: person.name,
@@ -311,6 +317,8 @@ export default function NewPayrollRunPage() {
         <Card className="overflow-hidden border-0 bg-white shadow-xl shadow-slate-200/50">
           <PayrollRunHeader selectedCount={totals.selectedCount} batchCount={batchCount} />
 
+          <PayrollSettlementModeCard payrollMode={payrollMode} onChange={setPayrollMode} />
+
           <CardContent className="space-y-5 p-6">
             <PayrollPeriodFields
               periodStart={periodStart}
@@ -354,11 +362,12 @@ export default function NewPayrollRunPage() {
             warnings={warnings}
             periodStart={periodStart}
             periodEnd={periodEnd}
+            payrollMode={payrollMode}
             canContinue={canReviewPayroll}
             onContinue={continueToReview}
           />
 
-          <PayrollNextStepsCard />
+          <PayrollNextStepsCard payrollMode={payrollMode} />
         </div>
       </div>
     </div>

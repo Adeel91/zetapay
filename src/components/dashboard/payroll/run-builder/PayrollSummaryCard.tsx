@@ -2,12 +2,14 @@ import { AlertTriangle, CalendarDays, Coins, ShieldCheck, Sparkles, Users } from
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { PayrollTotals, PayrollWarnings } from './types';
+import { PayrollMode } from './PayrollSettlementModeCard';
 
 export function PayrollSummaryCard({
   totals,
   warnings,
   periodStart,
   periodEnd,
+  payrollMode,
   canContinue,
   onContinue,
 }: {
@@ -15,6 +17,7 @@ export function PayrollSummaryCard({
   warnings: PayrollWarnings;
   periodStart: string;
   periodEnd: string;
+  payrollMode: PayrollMode;
   canContinue: boolean;
   onContinue: () => void;
 }) {
@@ -22,6 +25,14 @@ export function PayrollSummaryCard({
     warnings.missingWalletCount > 0 ||
     warnings.missingEmailCount > 0 ||
     warnings.invalidAmountCount > 0;
+
+  const modeLabel =
+    payrollMode === 'shielded_pool' ? 'Shielded payroll pool' : 'Confidential payroll';
+
+  const nextStepText =
+    payrollMode === 'shielded_pool'
+      ? 'Review this payroll, then fund the shielded pool and save withdrawal proof records.'
+      : 'Review this payroll, then generate commitments, Merkle paths, and the payroll proof.';
 
   return (
     <Card className="border-0 bg-white shadow-xl shadow-slate-200/50 lg:sticky lg:top-24">
@@ -51,8 +62,8 @@ export function PayrollSummaryCard({
           />
           <SummaryRow
             icon={<ShieldCheck className="h-4 w-4" />}
-            label="ZK mode"
-            value="Private commitments"
+            label="Settlement"
+            value={modeLabel}
           />
         </div>
 
@@ -83,9 +94,7 @@ export function PayrollSummaryCard({
             <Sparkles className="mt-0.5 h-5 w-5 text-emerald-600" />
             <div>
               <p className="font-medium text-emerald-900">Next step</p>
-              <p className="mt-1 text-sm text-emerald-700">
-                Review this payroll, then generate commitments, Merkle paths, and the payroll proof.
-              </p>
+              <p className="mt-1 text-sm text-emerald-700">{nextStepText}</p>
             </div>
           </div>
         </div>

@@ -55,6 +55,7 @@
     "contracts:deploy:payroll": "stellar contract deploy --wasm contracts/target/wasm32v1-none/release/zetapay_payroll.wasm --source-account zetapay-deployer --network testnet --alias zetapay-payroll",
     "contracts:deploy:pool": "stellar contract deploy --wasm contracts/target/wasm32v1-none/release/zetapay_pool.wasm --source-account zetapay-deployer --network testnet --alias zetapay-pool",
     "contracts:initialize": "tsx scripts/contracts/initialize.ts",
+    "contracts:initialize:pool": "tsx scripts/contracts/initialize-pool.ts",
     "contracts:deploy": "yarn contracts:build && yarn contracts:deploy:verifier && yarn contracts:deploy:payroll && yarn contracts:deploy:pool",
     "contracts:redeploy:testnet": "yarn zetapay:test && yarn contracts:deploy"
   },
