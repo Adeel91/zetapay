@@ -10,6 +10,14 @@ pub struct PoolConfig {
 
 #[derive(Clone)]
 #[contracttype]
+pub struct DepositNoteInput {
+    pub token: Address,
+    pub amount: i128,
+    pub commitment: Bn254Fr,
+}
+
+#[derive(Clone)]
+#[contracttype]
 pub struct ShieldedNote {
     pub depositor: Address,
     pub token: Address,

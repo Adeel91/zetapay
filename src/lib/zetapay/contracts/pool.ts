@@ -11,6 +11,8 @@ import { loadSorobanVerificationKey, SorobanVerificationKey } from './verificati
 import {
   BuildInitializeShieldedPoolInput,
   DepositNoteInput,
+  DepositNotesInput,
+  FundPayrollInput,
   PostRootInput,
   RegisterTokenInput,
   ShieldedNote,
@@ -128,24 +130,77 @@ function writeJsonTempFile(tempDir: string, name: string, value: unknown) {
   return filePath;
 }
 
+function parseSorobanStruct(value: string) {
+  const record: Record<string, unknown> = {};
+  const body = value.trim().replace(/^\{/, '').replace(/\}$/, '');
+
+  for (const part of body.split(',')) {
+    const separatorIndex = part.indexOf(':');
+    if (separatorIndex < 0) continue;
+
+    const rawKey = part.slice(0, separatorIndex).trim();
+    const rawValue = part.slice(separatorIndex + 1).trim();
+
+    const key = rawKey.replace(/^"|"$/g, '');
+    const cleanValue = rawValue.replace(/^"|"$/g, '');
+
+    record[key] = /^\d+$/.test(cleanValue) ? Number(cleanValue) : cleanValue;
+  }
+
+  return record;
+}
+
+function unwrapOkValue(value: string) {
+  const trimmed = value.trim();
+
+  if (trimmed.startsWith('Ok(') && trimmed.endsWith(')')) {
+    return trimmed.slice(3, -1).trim();
+  }
+
+  return trimmed;
+}
+
 function parseCliJson(output: string) {
-  const trimmed = output.trim();
+  const lines = output
+    .trim()
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
 
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    const jsonStart = trimmed.indexOf('{');
-    const jsonEnd = trimmed.lastIndexOf('}');
-
-    if (jsonStart >= 0 && jsonEnd > jsonStart) {
-      return JSON.parse(trimmed.slice(jsonStart, jsonEnd + 1));
-    }
+  for (const line of lines) {
+    const trimmed = unwrapOkValue(line);
 
     if (trimmed === 'true') return true;
     if (trimmed === 'false') return false;
+    if (trimmed === 'None') return null;
+    if (trimmed === 'null') return null;
 
-    throw new Error(`Could not parse Stellar CLI JSON output:\n${output}`);
+    if (/^\d+$/.test(trimmed)) return Number(trimmed);
+
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        return parseSorobanStruct(trimmed);
+      }
+    }
   }
+
+  const full = output.trim();
+  const jsonStart = full.indexOf('{');
+  const jsonEnd = full.indexOf('\n', jsonStart);
+
+  if (jsonStart >= 0) {
+    const candidate = full.slice(jsonStart, jsonEnd > jsonStart ? jsonEnd : undefined).trim();
+
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      return parseSorobanStruct(candidate);
+    }
+  }
+
+  throw new Error(`Could not parse Stellar CLI JSON output:\n${output}`);
 }
 
 function runStellarRead(args: string[]) {
@@ -174,6 +229,15 @@ function normalizeReturnValue(value: unknown) {
 }
 
 function normalizeScalar(value: unknown) {
+  if (value === null || value === undefined) return '';
+
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+
+    if ('value' in record) return String(record.value);
+    if ('lo' in record) return String(record.lo);
+  }
+
   return String(value);
 }
 
@@ -231,17 +295,26 @@ function normalizeWithdrawal(value: unknown): ShieldedWithdrawal {
 
 function normalizeStats(value: unknown): ShieldedPoolStats {
   const stats = value as {
-    deposit_count: number | bigint;
-    withdrawal_count: number | bigint;
+    deposit_count?: number | bigint;
+    withdrawal_count?: number | bigint;
+    depositCount?: number | bigint;
+    withdrawalCount?: number | bigint;
   };
 
   if (!stats) {
     throw new Error('Invalid pool stats shape.');
   }
 
+  const depositCount = stats.deposit_count ?? stats.depositCount;
+  const withdrawalCount = stats.withdrawal_count ?? stats.withdrawalCount;
+
+  if (depositCount === undefined || withdrawalCount === undefined) {
+    throw new Error('Invalid pool stats shape.');
+  }
+
   return {
-    depositCount: stats.deposit_count,
-    withdrawalCount: stats.withdrawal_count,
+    depositCount,
+    withdrawalCount,
   };
 }
 
@@ -364,6 +437,96 @@ export async function buildDepositNoteXdr(input: DepositNoteInput) {
   ]);
 }
 
+export async function buildDepositNotesXdr(input: DepositNotesInput) {
+  validateConfig();
+
+  if (!input.deposits.length) {
+    throw new Error('At least one pool deposit note is required.');
+  }
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zetapay_pool_deposit_notes_xdr_'));
+
+  try {
+    const depositsFilePath = writeJsonTempFile(
+      tempDir,
+      'deposits.json',
+      input.deposits.map((deposit) => ({
+        token: deposit.token,
+        amount: deposit.amount,
+        commitment: deposit.commitment,
+      }))
+    );
+
+    return await runStellarBuildOnly([
+      'contract',
+      'invoke',
+      '--build-only',
+      '--id',
+      zetapayConfig.poolContractId,
+      '--source-account',
+      input.depositor,
+      '--network',
+      network(),
+      '--fee',
+      CONTRACT_FEE,
+      '--',
+      'deposit_notes',
+      '--depositor',
+      input.depositor,
+      '--deposits-file-path',
+      depositsFilePath,
+    ]);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+export async function buildFundPayrollXdr(input: FundPayrollInput) {
+  validateConfig();
+
+  if (!input.deposits.length) {
+    throw new Error('At least one pool deposit note is required.');
+  }
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zetapay_pool_fund_payroll_xdr_'));
+
+  try {
+    const depositsFilePath = writeJsonTempFile(
+      tempDir,
+      'deposits.json',
+      input.deposits.map((deposit) => ({
+        token: deposit.token,
+        amount: deposit.amount,
+        commitment: deposit.commitment,
+      }))
+    );
+
+    return await runStellarBuildOnly([
+      'contract',
+      'invoke',
+      '--build-only',
+      '--id',
+      zetapayConfig.poolContractId,
+      '--source-account',
+      input.admin,
+      '--network',
+      network(),
+      '--fee',
+      CONTRACT_FEE,
+      '--',
+      'fund_payroll',
+      '--admin',
+      input.admin,
+      '--root',
+      input.root,
+      '--deposits-file-path',
+      depositsFilePath,
+    ]);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 export async function buildWithdrawWithProofXdr(input: WithdrawWithProofInput) {
   validateConfig();
 
@@ -429,6 +592,8 @@ export async function getWithdrawal(input: { source: string; nullifierHash: stri
     input.nullifierHash,
   ]);
 
+  if (!value) return null;
+
   return normalizeWithdrawal(value);
 }
 
@@ -447,6 +612,24 @@ export async function getStats(input: { source: string }) {
   const value = runStellarRead([input.source, 'get_stats']);
 
   return normalizeStats(value);
+}
+
+export async function isPoolContractInitialized(input: { source: string }) {
+  const value = runStellarRead([input.source, 'is_initialized']);
+
+  return Boolean(value);
+}
+
+export async function isTokenRegistered(input: { source: string; token: string }) {
+  const value = runStellarRead([input.source, 'is_token_registered', '--token', input.token]);
+
+  return Boolean(value);
+}
+
+export async function isRootAccepted(input: { source: string; root: string }) {
+  const value = runStellarRead([input.source, 'is_root_accepted', '--root', input.root]);
+
+  return Boolean(value);
 }
 
 export async function sendSignedPoolXdr(signedXdr: string) {

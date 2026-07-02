@@ -33,6 +33,23 @@ export type DepositNoteInput = {
   commitment: string;
 };
 
+export type BatchDepositNote = {
+  token: string;
+  amount: string;
+  commitment: string;
+};
+
+export type DepositNotesInput = {
+  depositor: string;
+  deposits: BatchDepositNote[];
+};
+
+export type FundPayrollInput = {
+  admin: string;
+  root: string;
+  deposits: BatchDepositNote[];
+};
+
 export type WithdrawWithProofInput = {
   recipient: string;
   token: string;

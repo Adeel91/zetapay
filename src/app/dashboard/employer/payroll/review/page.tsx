@@ -30,6 +30,8 @@ type PreparePayrollResult = {
   batchRoot: string;
   payrollRunHash: string;
   proofHash: string;
+  status?: string;
+  submitTxHash?: string | null;
   totals: {
     xlm: number;
     usdc: number;
@@ -74,6 +76,8 @@ type ExecutePayrollResult = {
     batchCount: number;
   };
 };
+
+type PayrollActionResult = PreparePayrollResult | ExecutePayrollResult;
 
 type PayrollErrorResponse = {
   error?: string;
@@ -122,6 +126,14 @@ async function readJsonOrThrow<T>(response: Response): Promise<T> {
   return result;
 }
 
+function getNextXdr(result: PayrollActionResult) {
+  if (result.step === 'prepared') {
+    return result.initializeXdr || result.submitXdr || null;
+  }
+
+  return null;
+}
+
 export default function PayrollReviewPage() {
   const router = useRouter();
 
@@ -166,6 +178,140 @@ export default function PayrollReviewPage() {
   const canGenerate =
     validation.hasPayees && validation.allWalletsValid && validation.allAmountsValid;
 
+  async function preparePayroll(walletAddress: string) {
+    if (!draft) {
+      throw new Error('Payroll draft is missing.');
+    }
+
+    const prepareResponse: Response = await fetch(payrollEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'prepare',
+        walletAddress,
+        periodStart: draft.periodStart,
+        periodEnd: draft.periodEnd,
+        payrollMode,
+        items: draft.items.map((item) => ({
+          personId: item.personId,
+          amount: item.amount,
+          currency: item.currency,
+        })),
+      }),
+    });
+
+    return await readJsonOrThrow<PreparePayrollResult>(prepareResponse);
+  }
+
+  async function runShieldedPoolFlow(walletAddress: string) {
+    setProgressIndex(1);
+
+    let result: PayrollActionResult = await preparePayroll(walletAddress);
+
+    if (result.employer !== walletAddress) {
+      throw new Error('Connected wallet does not match this enterprise wallet.');
+    }
+
+    let nextXdr = getNextXdr(result);
+
+    if (!nextXdr) {
+      throw new Error('Pool transaction was not prepared.');
+    }
+
+    while (nextXdr) {
+      setProgressIndex(2);
+
+      const signedXdr = await signWithFreighter(nextXdr, walletAddress);
+
+      setProgressIndex(3);
+
+      const submitResponse: Response = await fetch(payrollEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'submitSigned',
+          walletAddress,
+          payrollRunId: result.payrollRunId,
+          signedXdr,
+        }),
+      });
+
+      result = await readJsonOrThrow<PayrollActionResult>(submitResponse);
+      nextXdr = getNextXdr(result);
+    }
+
+    if (result.step !== 'executed') {
+      throw new Error('Pool funding did not complete.');
+    }
+
+    setProgressIndex(progressSteps.length - 1);
+
+    window.sessionStorage.setItem('zetapayGeneratedPayroll', JSON.stringify(result));
+    window.sessionStorage.removeItem('zetapayPayrollDraft');
+
+    router.push(ROUTES.employer.payrollDetails(String(result.payrollRunId)));
+  }
+
+  async function runConfidentialPayrollFlow(walletAddress: string) {
+    setProgressIndex(1);
+
+    const prepared = await preparePayroll(walletAddress);
+
+    if (prepared.employer !== walletAddress) {
+      throw new Error('Connected wallet does not match this enterprise wallet.');
+    }
+
+    let submitXdr = prepared.submitXdr;
+
+    setProgressIndex(2);
+
+    if (prepared.initializeXdr) {
+      const signedInitializeXdr = await signWithFreighter(prepared.initializeXdr, walletAddress);
+
+      const initializeResponse: Response = await fetch(payrollEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'submitInitialize',
+          walletAddress,
+          payrollRunId: prepared.payrollRunId,
+          signedXdr: signedInitializeXdr,
+        }),
+      });
+
+      const initialized = await readJsonOrThrow<InitializePayrollResult>(initializeResponse);
+      submitXdr = initialized.submitXdr;
+    }
+
+    if (!submitXdr) {
+      throw new Error('Payroll transaction was not prepared.');
+    }
+
+    setProgressIndex(3);
+
+    const signedSubmitXdr = await signWithFreighter(submitXdr, walletAddress);
+
+    const submitResponse: Response = await fetch(payrollEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'submitSigned',
+        walletAddress,
+        payrollRunId: prepared.payrollRunId,
+        signedXdr: signedSubmitXdr,
+      }),
+    });
+
+    const executed = await readJsonOrThrow<ExecutePayrollResult>(submitResponse);
+
+    setProgressIndex(progressSteps.length - 1);
+
+    window.sessionStorage.setItem('zetapayGeneratedPayroll', JSON.stringify(executed));
+    window.sessionStorage.removeItem('zetapayPayrollDraft');
+
+    router.push(ROUTES.employer.payrollDetails(String(executed.payrollRunId)));
+  }
+
   async function handlePrimaryAction() {
     if (!draft || generating) return;
 
@@ -176,80 +322,12 @@ export default function PayrollReviewPage() {
     try {
       const walletAddress = await getFreighterPublicKey();
 
-      setProgressIndex(1);
-
-      const prepareResponse = await fetch(payrollEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'prepare',
-          walletAddress,
-          periodStart: draft.periodStart,
-          periodEnd: draft.periodEnd,
-          payrollMode,
-          items: draft.items.map((item) => ({
-            personId: item.personId,
-            amount: item.amount,
-            currency: item.currency,
-          })),
-        }),
-      });
-
-      const prepared = await readJsonOrThrow<PreparePayrollResult>(prepareResponse);
-
-      if (prepared.employer !== walletAddress) {
-        throw new Error('Connected wallet does not match this enterprise wallet.');
+      if (payrollMode === 'shielded_pool') {
+        await runShieldedPoolFlow(walletAddress);
+        return;
       }
 
-      let submitXdr = prepared.submitXdr;
-
-      setProgressIndex(2);
-
-      if (prepared.initializeXdr) {
-        const signedInitializeXdr = await signWithFreighter(prepared.initializeXdr, walletAddress);
-
-        const initializeResponse = await fetch(payrollEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'submitInitialize',
-            walletAddress,
-            payrollRunId: prepared.payrollRunId,
-            signedXdr: signedInitializeXdr,
-          }),
-        });
-
-        const initialized = await readJsonOrThrow<InitializePayrollResult>(initializeResponse);
-        submitXdr = initialized.submitXdr;
-      }
-
-      if (!submitXdr) {
-        throw new Error('Payroll transaction was not prepared.');
-      }
-
-      setProgressIndex(3);
-
-      const signedSubmitXdr = await signWithFreighter(submitXdr, walletAddress);
-
-      const submitResponse = await fetch(payrollEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'submitSigned',
-          walletAddress,
-          payrollRunId: prepared.payrollRunId,
-          signedXdr: signedSubmitXdr,
-        }),
-      });
-
-      const executed = await readJsonOrThrow<ExecutePayrollResult>(submitResponse);
-
-      setProgressIndex(progressSteps.length - 1);
-
-      window.sessionStorage.setItem('zetapayGeneratedPayroll', JSON.stringify(executed));
-      window.sessionStorage.removeItem('zetapayPayrollDraft');
-
-      router.push(ROUTES.employer.payrollDetails(String(executed.payrollRunId)));
+      await runConfidentialPayrollFlow(walletAddress);
     } catch (error) {
       setGenerationError(error instanceof Error ? error.message : 'Failed to process payroll');
       setGenerating(false);
@@ -381,6 +459,7 @@ function PayrollProgressOverlay({
         <div className="p-6">
           <div className="mb-5 flex items-center gap-3 rounded-2xl bg-emerald-50 p-4">
             <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+
             <div>
               <p className="text-sm font-semibold text-emerald-800">{progressSteps[currentStep]}</p>
               <p className="text-xs text-emerald-700/70">

@@ -3,7 +3,7 @@ use soroban_sdk::{contract, contractimpl, crypto::bn254::Bn254Fr, token, Address
 use crate::{
     error::PoolError,
     storage::Storage,
-    types::{PoolConfig, PoolStats, ShieldedNote, WithdrawalRecord},
+    types::{DepositNoteInput, PoolConfig, PoolStats, ShieldedNote, WithdrawalRecord},
 };
 
 use zetapay_verifier::{Proof, ZetaPayVerifierClient};
@@ -72,6 +72,43 @@ impl ZetaPayPool {
         Ok(())
     }
 
+    pub fn fund_payroll(
+        env: Env,
+        admin: Address,
+        root: Bn254Fr,
+        deposits: Vec<DepositNoteInput>,
+    ) -> Result<(), PoolError> {
+        admin.require_auth();
+
+        if deposits.is_empty() {
+            return Err(PoolError::InvalidAmount);
+        }
+
+        let config = Storage::get_config(&env)?;
+
+        if config.admin != admin {
+            return Err(PoolError::Unauthorized);
+        }
+
+        if !Storage::is_root_accepted(&env, &root) {
+            Storage::accept_root(&env, &root);
+        }
+
+        for index in 0..deposits.len() {
+            let deposit = deposits.get(index).ok_or(PoolError::InvalidAmount)?;
+
+            Self::deposit_one(
+                &env,
+                &admin,
+                &deposit.token,
+                deposit.amount,
+                &deposit.commitment,
+            )?;
+        }
+
+        Ok(())
+    }
+
     pub fn deposit_note(
         env: Env,
         depositor: Address,
@@ -81,37 +118,33 @@ impl ZetaPayPool {
     ) -> Result<(), PoolError> {
         depositor.require_auth();
 
-        if amount <= 0 {
+        Self::deposit_one(&env, &depositor, &token, amount, &commitment)?;
+
+        Ok(())
+    }
+
+    pub fn deposit_notes(
+        env: Env,
+        depositor: Address,
+        deposits: Vec<DepositNoteInput>,
+    ) -> Result<(), PoolError> {
+        depositor.require_auth();
+
+        if deposits.is_empty() {
             return Err(PoolError::InvalidAmount);
         }
 
-        if !Storage::is_registered_token(&env, &token) {
-            return Err(PoolError::TokenNotRegistered);
+        for index in 0..deposits.len() {
+            let deposit = deposits.get(index).ok_or(PoolError::InvalidAmount)?;
+
+            Self::deposit_one(
+                &env,
+                &depositor,
+                &deposit.token,
+                deposit.amount,
+                &deposit.commitment,
+            )?;
         }
-
-        if Storage::has_note(&env, &commitment) {
-            return Err(PoolError::CommitmentAlreadyExists);
-        }
-
-        token::TokenClient::new(&env, &token).transfer(
-            &depositor,
-            &env.current_contract_address(),
-            &amount,
-        );
-
-        let note = ShieldedNote {
-            depositor,
-            token,
-            amount,
-            commitment: commitment.clone(),
-            created_at_ledger: env.ledger().sequence(),
-            withdrawn: false,
-        };
-
-        Storage::set_note(&env, &commitment, &note);
-
-        let count = Storage::get_deposit_count(&env) + 1;
-        Storage::set_deposit_count(&env, &count);
 
         Ok(())
     }
@@ -214,6 +247,10 @@ impl ZetaPayPool {
         Storage::get_note(&env, &commitment)
     }
 
+    pub fn is_initialized(env: Env) -> bool {
+        Storage::has_config(&env)
+    }
+
     pub fn is_token_registered(env: Env, token: Address) -> bool {
         Storage::is_registered_token(&env, &token)
     }
@@ -232,6 +269,48 @@ impl ZetaPayPool {
 
     pub fn get_stats(env: Env) -> PoolStats {
         Storage::get_stats(&env)
+    }
+
+    fn deposit_one(
+        env: &Env,
+        depositor: &Address,
+        token_address: &Address,
+        amount: i128,
+        commitment: &Bn254Fr,
+    ) -> Result<(), PoolError> {
+        if amount <= 0 {
+            return Err(PoolError::InvalidAmount);
+        }
+
+        if !Storage::is_registered_token(env, token_address) {
+            return Err(PoolError::TokenNotRegistered);
+        }
+
+        if Storage::has_note(env, commitment) {
+            return Err(PoolError::CommitmentAlreadyExists);
+        }
+
+        token::TokenClient::new(env, token_address).transfer(
+            depositor,
+            &env.current_contract_address(),
+            &amount,
+        );
+
+        let note = ShieldedNote {
+            depositor: depositor.clone(),
+            token: token_address.clone(),
+            amount,
+            commitment: commitment.clone(),
+            created_at_ledger: env.ledger().sequence(),
+            withdrawn: false,
+        };
+
+        Storage::set_note(env, commitment, &note);
+
+        let count = Storage::get_deposit_count(env) + 1;
+        Storage::set_deposit_count(env, &count);
+
+        Ok(())
     }
 
     fn validate_public_inputs(

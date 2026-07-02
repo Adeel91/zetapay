@@ -8,6 +8,7 @@ use crate::{
         REAL_COMMITMENT, REAL_PROOF_A, REAL_PROOF_B, REAL_PROOF_C, REAL_SIGNALS, REAL_VK_ALPHA,
         REAL_VK_BETA, REAL_VK_DELTA, REAL_VK_GAMMA, REAL_VK_IC,
     },
+    types::DepositNoteInput,
 };
 
 use soroban_sdk::{
@@ -100,6 +101,18 @@ fn balance(env: &Env, token_address: &Address, owner: &Address) -> i128 {
     token::TokenClient::new(env, token_address).balance(owner)
 }
 
+fn make_deposits(env: &Env, token_address: &Address, commitment: &Bn254Fr) -> Vec<DepositNoteInput> {
+    let mut deposits = Vec::new(env);
+
+    deposits.push_back(DepositNoteInput {
+        token: token_address.clone(),
+        amount: REAL_AMOUNT,
+        commitment: commitment.clone(),
+    });
+
+    deposits
+}
+
 #[test]
 fn withdraw_with_real_groth16_proof_transfers_funds_and_spends_nullifier() {
     let env = Env::default();
@@ -174,6 +187,145 @@ fn withdraw_with_real_groth16_proof_transfers_funds_and_spends_nullifier() {
     assert_eq!(record.commitment, commitment);
     assert_eq!(record.root, root);
     assert_eq!(record.nullifier_hash, nullifier_hash);
+}
+
+#[test]
+fn fund_payroll_posts_root_and_deposits_note_in_one_call() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+
+    let verifier = deploy_verifier(&env);
+    let (pool_id, pool) = deploy_pool(&env);
+    let asset = token_contract(&env, &token_admin);
+
+    let commitment = fr(&env, &REAL_COMMITMENT);
+    let public_inputs = make_public_inputs(&env);
+    let root = public_inputs.get(0).unwrap();
+
+    initialize_pool(&env, &pool, &admin, &verifier);
+    register_token(&pool, &admin, &asset);
+    mint(&env, &asset, &admin, REAL_AMOUNT);
+
+    assert_eq!(balance(&env, &asset, &admin), REAL_AMOUNT);
+    assert!(!pool.is_root_accepted(&root));
+
+    let deposits = make_deposits(&env, &asset, &commitment);
+
+    let result = pool.try_fund_payroll(&admin, &root, &deposits);
+
+    assert!(result.is_ok());
+    assert!(result.unwrap().is_ok());
+
+    assert_eq!(balance(&env, &asset, &admin), 0);
+    assert_eq!(balance(&env, &asset, &pool_id), REAL_AMOUNT);
+    assert!(pool.is_root_accepted(&root));
+
+    let note = pool.get_note(&commitment);
+    assert_eq!(note.amount, REAL_AMOUNT);
+    assert_eq!(note.depositor, admin);
+    assert_eq!(note.token, asset);
+    assert_eq!(note.commitment, commitment);
+    assert!(!note.withdrawn);
+
+    let stats = pool.get_stats();
+    assert_eq!(stats.deposit_count, 1);
+    assert_eq!(stats.withdrawal_count, 0);
+}
+
+#[test]
+fn fund_payroll_allows_withdrawal_after_single_funding_call() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+
+    let verifier = deploy_verifier(&env);
+    let (pool_id, pool) = deploy_pool(&env);
+    let asset = token_contract(&env, &token_admin);
+
+    let commitment = fr(&env, &REAL_COMMITMENT);
+    let public_inputs = make_public_inputs(&env);
+
+    let root = public_inputs.get(0).unwrap();
+    let nullifier_hash = public_inputs.get(1).unwrap();
+    let recipient_hash = public_inputs.get(2).unwrap();
+    let token_hash = public_inputs.get(4).unwrap();
+    let withdrawal_hash = public_inputs.get(5).unwrap();
+
+    initialize_pool(&env, &pool, &admin, &verifier);
+    register_token(&pool, &admin, &asset);
+    mint(&env, &asset, &admin, REAL_AMOUNT);
+
+    let deposits = make_deposits(&env, &asset, &commitment);
+
+    assert!(pool
+        .try_fund_payroll(&admin, &root, &deposits)
+        .unwrap()
+        .is_ok());
+
+    assert_eq!(balance(&env, &asset, &admin), 0);
+    assert_eq!(balance(&env, &asset, &pool_id), REAL_AMOUNT);
+
+    let withdraw = pool.try_withdraw_with_proof(
+        &recipient,
+        &asset,
+        &REAL_AMOUNT,
+        &commitment,
+        &root,
+        &nullifier_hash,
+        &recipient_hash,
+        &token_hash,
+        &withdrawal_hash,
+        &make_proof(&env),
+        &public_inputs,
+    );
+
+    assert!(withdraw.is_ok());
+    assert!(withdraw.unwrap().is_ok());
+
+    assert_eq!(balance(&env, &asset, &pool_id), 0);
+    assert_eq!(balance(&env, &asset, &recipient), REAL_AMOUNT);
+
+    let stats = pool.get_stats();
+    assert_eq!(stats.deposit_count, 1);
+    assert_eq!(stats.withdrawal_count, 1);
+}
+
+#[test]
+fn fund_payroll_rejects_duplicate_commitment() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+
+    let verifier = deploy_verifier(&env);
+    let (_pool_id, pool) = deploy_pool(&env);
+    let asset = token_contract(&env, &token_admin);
+
+    let commitment = fr(&env, &REAL_COMMITMENT);
+    let public_inputs = make_public_inputs(&env);
+    let root = public_inputs.get(0).unwrap();
+
+    initialize_pool(&env, &pool, &admin, &verifier);
+    register_token(&pool, &admin, &asset);
+    mint(&env, &asset, &admin, REAL_AMOUNT * 2);
+
+    let deposits = make_deposits(&env, &asset, &commitment);
+
+    assert!(pool
+        .try_fund_payroll(&admin, &root, &deposits)
+        .unwrap()
+        .is_ok());
+
+    let duplicate = pool.try_fund_payroll(&admin, &root, &deposits);
+
+    assert!(duplicate.is_err());
 }
 
 #[test]
