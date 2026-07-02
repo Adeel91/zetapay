@@ -1,84 +1,124 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Save, Building2, Globe, Shield } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import Cookies from 'js-cookie';
+import { Building2, CheckCircle2, Globe, Layers3, Save, Shield, WalletCards } from 'lucide-react';
+
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
-import Cookies from 'js-cookie';
+
+type SettlementMode = 'confidential_payroll' | 'shielded_pool';
+
+type SettingsState = {
+  companyName: string;
+  companyEmail: string;
+  defaultCurrency: string;
+  taxRegion: string;
+  payFrequency: string;
+  autoProcess: boolean;
+  requireApproval: boolean;
+  defaultSettlementMode: SettlementMode;
+  useFixedDenominations: boolean;
+};
+
+const defaultSettings: SettingsState = {
+  companyName: '',
+  companyEmail: '',
+  defaultCurrency: 'USDC',
+  taxRegion: 'US',
+  payFrequency: 'monthly',
+  autoProcess: false,
+  requireApproval: true,
+  defaultSettlementMode: 'confidential_payroll',
+  useFixedDenominations: true,
+};
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [settings, setSettings] = useState({
-    companyName: '',
-    companyEmail: '',
-    defaultCurrency: 'USDC',
-    taxRegion: 'US',
-    payFrequency: 'monthly',
-    autoProcess: false,
-    requireApproval: true,
-  });
+  const [settings, setSettings] = useState<SettingsState>(defaultSettings);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchSettings = useCallback(async () => {
     const enterpriseId = Cookies.get('enterpriseId');
+
     if (!enterpriseId) {
+      setError('Enterprise session not found');
       setLoading(false);
       return;
     }
 
     try {
       const response = await fetch(`/api/settings?enterpriseId=${enterpriseId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setSettings({
-          companyName: data.companyName || '',
-          companyEmail: data.companyEmail || '',
-          defaultCurrency: data.defaultCurrency || 'USDC',
-          taxRegion: data.taxRegion || 'US',
-          payFrequency: data.payFrequency || 'monthly',
-          autoProcess: data.autoProcess || false,
-          requireApproval: data.requireApproval !== undefined ? data.requireApproval : true,
-        });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Failed to load settings');
       }
-    } catch (error) {
-      console.error('Error fetching settings:', error);
+
+      setSettings({
+        companyName: data.companyName || '',
+        companyEmail: data.companyEmail || '',
+        defaultCurrency: data.defaultCurrency || 'USDC',
+        taxRegion: data.taxRegion || 'US',
+        payFrequency: data.payFrequency || 'monthly',
+        autoProcess: Boolean(data.autoProcess),
+        requireApproval: data.requireApproval !== undefined ? Boolean(data.requireApproval) : true,
+        defaultSettlementMode:
+          data.defaultSettlementMode === 'shielded_pool' ? 'shielded_pool' : 'confidential_payroll',
+        useFixedDenominations: data.useFixedDenominations !== false,
+      });
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load settings');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const handleSave = async () => {
+  async function handleSave() {
     setSaving(true);
+    setMessage(null);
+    setError(null);
+
     try {
       const enterpriseId = Cookies.get('enterpriseId');
-      await fetch('/api/settings', {
+
+      if (!enterpriseId) {
+        throw new Error('Enterprise session not found');
+      }
+
+      const response = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enterpriseId: parseInt(enterpriseId!), ...settings }),
+        body: JSON.stringify({ enterpriseId: Number.parseInt(enterpriseId, 10), ...settings }),
       });
-      alert('Settings saved successfully!');
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      alert('Failed to save settings');
+
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || body.message || 'Failed to save settings');
+      }
+
+      setMessage('Settings saved successfully.');
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save settings');
     } finally {
       setSaving(false);
     }
-  };
+  }
 
   useEffect(() => {
-    let isMounted = true;
+    let cancelled = false;
 
-    const triggerFetch = async () => {
-      await Promise.resolve();
-      if (isMounted) {
-        await fetchSettings();
+    queueMicrotask(() => {
+      if (!cancelled) {
+        void fetchSettings();
       }
-    };
-
-    triggerFetch();
+    });
 
     return () => {
-      isMounted = false;
+      cancelled = true;
     };
   }, [fetchSettings]);
 
@@ -92,121 +132,222 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Settings" description="Manage your company preferences" />
+      <PageHeader
+        title="Settings"
+        description="Manage company profile, payroll defaults, and shielded pool preferences."
+      />
+
+      {message && (
+        <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-700">
+          <CheckCircle2 className="h-4 w-4" />
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="space-y-6">
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-900">
-            <Building2 className="h-5 w-5" /> Company
+            <Building2 className="h-5 w-5 text-emerald-600" />
+            Company
           </h3>
+
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Company Name</label>
+            <Field label="Company Name">
               <input
                 type="text"
                 value={settings.companyName}
-                onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
+                onChange={(event) => setSettings({ ...settings, companyName: event.target.value })}
                 className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                 placeholder="Your Company"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Company Email</label>
+            </Field>
+
+            <Field label="Company Email">
               <input
                 type="email"
                 value={settings.companyEmail}
-                onChange={(e) => setSettings({ ...settings, companyEmail: e.target.value })}
+                onChange={(event) => setSettings({ ...settings, companyEmail: event.target.value })}
                 className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                 placeholder="hr@company.com"
               />
-            </div>
+            </Field>
           </div>
-        </div>
+        </section>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-900">
-            <Globe className="h-5 w-5" /> Payroll
+            <Globe className="h-5 w-5 text-emerald-600" />
+            Payroll
           </h3>
+
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Default Currency</label>
+            <Field label="Default Currency">
               <select
                 value={settings.defaultCurrency}
-                onChange={(e) => setSettings({ ...settings, defaultCurrency: e.target.value })}
+                onChange={(event) =>
+                  setSettings({ ...settings, defaultCurrency: event.target.value })
+                }
                 className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
               >
                 <option value="USDC">USDC</option>
                 <option value="XLM">XLM</option>
-                <option value="EURC">EURC</option>
               </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Tax Region</label>
+            </Field>
+
+            <Field label="Tax Region">
               <select
                 value={settings.taxRegion}
-                onChange={(e) => setSettings({ ...settings, taxRegion: e.target.value })}
+                onChange={(event) => setSettings({ ...settings, taxRegion: event.target.value })}
                 className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
               >
                 <option value="US">United States</option>
                 <option value="EU">Europe</option>
                 <option value="UK">United Kingdom</option>
               </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Pay Frequency</label>
+            </Field>
+
+            <Field label="Pay Frequency">
               <select
                 value={settings.payFrequency}
-                onChange={(e) => setSettings({ ...settings, payFrequency: e.target.value })}
+                onChange={(event) => setSettings({ ...settings, payFrequency: event.target.value })}
                 className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
               >
                 <option value="monthly">Monthly</option>
-                <option value="biweekly">Bi-weekly</option>
+                <option value="biweekly">Biweekly</option>
                 <option value="weekly">Weekly</option>
               </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Auto Process</label>
+            </Field>
+
+            <Field label="Auto Process">
               <select
                 value={settings.autoProcess ? 'true' : 'false'}
-                onChange={(e) =>
-                  setSettings({ ...settings, autoProcess: e.target.value === 'true' })
+                onChange={(event) =>
+                  setSettings({ ...settings, autoProcess: event.target.value === 'true' })
                 }
                 className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
               >
-                <option value="true">Enabled</option>
                 <option value="false">Disabled</option>
+                <option value="true">Enabled</option>
               </select>
-            </div>
+            </Field>
           </div>
-        </div>
+        </section>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-900">
-            <Shield className="h-5 w-5" /> Security
+            <WalletCards className="h-5 w-5 text-emerald-600" />
+            Settlement
           </h3>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-slate-900">Require Approval</p>
-              <p className="text-sm text-slate-500">
-                Require admin approval before payroll execution
-              </p>
-            </div>
-            <label className="relative inline-flex cursor-pointer items-center">
-              <input
-                type="checkbox"
-                checked={settings.requireApproval}
-                onChange={(e) => setSettings({ ...settings, requireApproval: e.target.checked })}
-                className="peer sr-only"
-              />
-              <div className="peer h-6 w-11 rounded-full bg-slate-200 peer-checked:bg-emerald-600 after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full" />
-            </label>
-          </div>
-        </div>
 
-        <Button onClick={handleSave} loading={saving} icon={<Save className="h-4 w-4" />}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Default Settlement Mode">
+              <select
+                value={settings.defaultSettlementMode}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    defaultSettlementMode: event.target.value as SettlementMode,
+                  })
+                }
+                className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+              >
+                <option value="confidential_payroll">Confidential Payroll</option>
+                <option value="shielded_pool">Shielded Payroll Pool</option>
+              </select>
+            </Field>
+
+            <ToggleCard
+              icon={<Layers3 className="h-4 w-4 text-emerald-600" />}
+              title="Fixed Denominations"
+              description="Split shielded pool deposits into standard note sizes for better privacy."
+              checked={settings.useFixedDenominations}
+              onChange={(checked) => setSettings({ ...settings, useFixedDenominations: checked })}
+            />
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-900">
+            <Shield className="h-5 w-5 text-emerald-600" />
+            Security
+          </h3>
+
+          <ToggleCard
+            title="Require Approval"
+            description="Require admin approval before payroll execution."
+            checked={settings.requireApproval}
+            onChange={(checked) => setSettings({ ...settings, requireApproval: checked })}
+          />
+        </section>
+
+        <Button
+          onClick={handleSave}
+          loading={saving}
+          icon={<Save className="h-4 w-4" />}
+          className="bg-emerald-600 text-white hover:bg-emerald-700"
+        >
           Save Settings
         </Button>
       </div>
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="block text-sm font-medium text-slate-700">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function ToggleCard({
+  icon,
+  title,
+  description,
+  checked,
+  onChange,
+}: {
+  icon?: React.ReactNode;
+  title: string;
+  description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="flex items-center gap-2 font-medium text-slate-900">
+            {icon}
+            {title}
+          </p>
+          <p className="mt-1 text-sm text-slate-500">{description}</p>
+        </div>
+
+        <Switch checked={checked} onChange={onChange} />
+      </div>
+    </div>
+  );
+}
+
+function Switch({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="relative inline-flex cursor-pointer items-center">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="peer sr-only"
+      />
+      <div className="peer h-6 w-11 rounded-full bg-slate-200 peer-checked:bg-emerald-600 after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full" />
+    </label>
   );
 }

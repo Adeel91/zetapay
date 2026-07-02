@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import {
   CalendarDays,
@@ -8,6 +8,8 @@ import {
   Copy,
   ExternalLink,
   FileWarning,
+  Layers3,
+  LockKeyhole,
   ShieldCheck,
   Users,
   WalletCards,
@@ -53,6 +55,51 @@ type PayrollEmployeeRecord = {
   } | null;
 };
 
+type PoolNotePayload = {
+  employeeId: number;
+  amount: string;
+  employeeTotalAmount?: string;
+  atomicAmount: string;
+  currency: 'XLM' | 'USDC';
+  token: string;
+  commitment: string;
+  payeeIndex: number;
+  employeeNoteIndex?: number;
+  denomination?: string;
+};
+
+type PayrollRunMetadata = {
+  settlementMode?: 'confidential_payroll' | 'shielded_pool';
+  sourceOfTruth?: string;
+  fixedDenomination?: boolean;
+  noteCount?: number;
+  denominationPolicy?: {
+    enabled?: boolean;
+    atomicScale?: number;
+    xlm?: string[];
+    usdc?: string[];
+  };
+  soroban?: {
+    stage?: string;
+    contractBatchId?: number | null;
+    submitTxHash?: string | null;
+    executeTxHash?: string | null;
+    lastTxHash?: string | null;
+    poolContractId?: string;
+    verifierContractId?: string;
+    txHashes?: string[];
+    poolPayload?: {
+      root?: string;
+      notes?: PoolNotePayload[];
+      totals?: {
+        xlm: number;
+        usdc: number;
+        gross: number;
+      };
+    };
+  };
+};
+
 type PayrollRunDetail = {
   id: number;
   enterpriseId: number;
@@ -75,13 +122,7 @@ type PayrollRunDetail = {
   publicVerificationUrl: string | null;
   status: string | null;
   createdAt: string;
-  metadata?: {
-    soroban?: {
-      contractBatchId?: number | null;
-      submitTxHash?: string | null;
-      executeTxHash?: string | null;
-    };
-  } | null;
+  metadata?: PayrollRunMetadata | null;
   employees: PayrollEmployeeRecord[];
 };
 
@@ -91,6 +132,8 @@ type GeneratedPayrollResult = {
   txHash?: string | null;
   submitTxHash?: string | null;
   executeTxHash?: string | null;
+  fixedDenomination?: boolean;
+  noteCount?: number;
   employeeVerificationLinks?: {
     employeeId: number;
     payrollEmployeeId: number;
@@ -100,8 +143,79 @@ type GeneratedPayrollResult = {
   }[];
 };
 
+type AggregatedPoolPayee = {
+  employeeId: number;
+  employee?: PayrollEmployeeRecord['employee'];
+  currencyTotals: Record<string, number>;
+  noteCount: number;
+  statuses: string[];
+  txHash: string | null;
+  sampleCommitments: string[];
+};
+
 function stellarTxUrl(txHash?: string | null) {
   return txHash ? `https://stellar.expert/explorer/testnet/tx/${txHash}` : null;
+}
+
+function formatAmount(value?: string | number | null) {
+  const numberValue = Number(value || 0);
+
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 7,
+  }).format(numberValue);
+}
+
+function shortHash(value?: string | null) {
+  if (!value) return 'Not generated';
+  if (value.length <= 18) return value;
+
+  return `${value.slice(0, 10)}...${value.slice(-8)}`;
+}
+
+function isShieldedPoolRun(data: PayrollRunDetail) {
+  return data.metadata?.settlementMode === 'shielded_pool';
+}
+
+function aggregatePoolPayees(payees: PayrollEmployeeRecord[]) {
+  const groups = new Map<number, AggregatedPoolPayee>();
+
+  for (const payee of payees) {
+    const current =
+      groups.get(payee.employeeId) ||
+      ({
+        employeeId: payee.employeeId,
+        employee: payee.employee,
+        currencyTotals: {},
+        noteCount: 0,
+        statuses: [],
+        txHash: payee.txHash,
+        sampleCommitments: [],
+      } satisfies AggregatedPoolPayee);
+
+    const currency = payee.payoutCurrency || 'USDC';
+
+    current.currencyTotals[currency] =
+      (current.currencyTotals[currency] || 0) + Number(payee.netSalary || 0);
+
+    current.noteCount += 1;
+
+    if (payee.status) {
+      current.statuses.push(payee.status);
+    }
+
+    if (payee.commitment && current.sampleCommitments.length < 3) {
+      current.sampleCommitments.push(payee.commitment);
+    }
+
+    if (!current.txHash && payee.txHash) {
+      current.txHash = payee.txHash;
+    }
+
+    groups.set(payee.employeeId, current);
+  }
+
+  return Array.from(groups.values());
 }
 
 export default function EmployerPayrollDetailPage() {
@@ -155,6 +269,10 @@ export default function EmployerPayrollDetailPage() {
     });
   }, [params.id]);
 
+  const poolPayees = useMemo(() => {
+    return data ? aggregatePoolPayees(data.employees) : [];
+  }, [data]);
+
   if (loading) {
     return (
       <div className="flex min-h-[420px] items-center justify-center">
@@ -175,14 +293,23 @@ export default function EmployerPayrollDetailPage() {
     );
   }
 
+  const shieldedPool = isShieldedPoolRun(data);
   const verified = Boolean(data.batchRoot && data.proofHash);
-  const publicVerificationUrl = data.publicVerificationUrl;
+
+  const poolTxHash =
+    data.txHash ||
+    data.metadata?.soroban?.lastTxHash ||
+    generatedResult?.txHash ||
+    generatedResult?.submitTxHash ||
+    null;
+
   const executeTxHash =
     data.txHash ||
     data.metadata?.soroban?.executeTxHash ||
     generatedResult?.executeTxHash ||
     generatedResult?.txHash ||
     null;
+
   const submitTxHash =
     data.metadata?.soroban?.submitTxHash || generatedResult?.submitTxHash || null;
 
@@ -190,10 +317,287 @@ export default function EmployerPayrollDetailPage() {
     <div className="space-y-6">
       <PageHeader
         title={`Payroll #${data.id}`}
-        description="Private employer payroll report with encrypted payroll records, proof data, verification links, and Stellar settlement records."
+        description={
+          shieldedPool
+            ? 'Shielded pool funding report with encrypted withdrawal notes and Stellar pool settlement records.'
+            : 'Private employer payroll report with encrypted payroll records, proof data, verification links, and Stellar settlement records.'
+        }
         backLink={{ href: ROUTES.employer.payroll, label: 'Back to Payroll' }}
       />
 
+      {shieldedPool ? (
+        <ShieldedPoolDetail
+          data={data}
+          generatedResult={generatedResult}
+          copied={copied}
+          poolTxHash={poolTxHash}
+          poolPayees={poolPayees}
+          onCopy={copy}
+        />
+      ) : (
+        <ConfidentialPayrollDetail
+          data={data}
+          generatedResult={generatedResult}
+          copied={copied}
+          verified={verified}
+          executeTxHash={executeTxHash}
+          submitTxHash={submitTxHash}
+          onCopy={copy}
+        />
+      )}
+    </div>
+  );
+}
+
+function ShieldedPoolDetail({
+  data,
+  generatedResult,
+  copied,
+  poolTxHash,
+  poolPayees,
+  onCopy,
+}: {
+  data: PayrollRunDetail;
+  generatedResult: GeneratedPayrollResult | null;
+  copied: string | null;
+  poolTxHash: string | null;
+  poolPayees: AggregatedPoolPayee[];
+  onCopy: (value?: string | null, label?: string) => void;
+}) {
+  const noteCount =
+    data.metadata?.noteCount ||
+    generatedResult?.noteCount ||
+    data.metadata?.soroban?.poolPayload?.notes?.length ||
+    data.employees.length;
+
+  const poolStage = data.metadata?.soroban?.stage || 'pool_funded';
+  const poolContractId = data.metadata?.soroban?.poolContractId || 'Not available';
+  const root = data.metadata?.soroban?.poolPayload?.root || data.batchRoot;
+  const fixedDenomination = Boolean(
+    data.metadata?.fixedDenomination || generatedResult?.fixedDenomination
+  );
+
+  return (
+    <>
+      <Card className="overflow-hidden border-0 bg-white shadow-xl shadow-slate-200/50">
+        <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 px-6 py-8 text-white">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm text-emerald-50">
+            <LockKeyhole className="h-4 w-4" />
+            Shielded pool funding report
+          </div>
+
+          <h1 className="mt-4 text-3xl font-bold">Payroll deposited into pool</h1>
+
+          <p className="mt-2 max-w-2xl text-sm text-emerald-50/80">
+            Employer funds were deposited into the shielded pool as private withdrawal notes.
+            Employees withdraw later using proof material. Auditors can verify the encrypted
+            employer report using the audit key.
+          </p>
+        </div>
+
+        <CardContent className="grid gap-4 p-6 md:grid-cols-4">
+          <Metric label="Status" value={data.status || 'completed'} />
+          <Metric label="Employees" value={`${data.payeeCount || poolPayees.length}`} />
+          <Metric label="Shielded notes" value={`${noteCount}`} />
+          <Metric label="Mode" value={fixedDenomination ? 'Fixed denominations' : 'Direct notes'} />
+        </CardContent>
+      </Card>
+
+      <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
+        <CardContent className="p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <WalletCards className="h-5 w-5 text-emerald-600" />
+                <h2 className="text-lg font-semibold text-slate-900">Pool funding transaction</h2>
+              </div>
+
+              <p className="mt-1 text-sm text-slate-500">
+                This transaction funded the pool contract. Public chain data shows token amounts and
+                commitments, but not employee ownership.
+              </p>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <Info label="Network" value="Stellar Testnet" />
+                <Info label="Pool stage" value={poolStage} />
+                <Info label="Status" value={data.status || 'unknown'} />
+              </div>
+
+              <HashBox label="Pool contract" value={poolContractId} onCopy={onCopy} />
+              <HashBox label="Funding transaction" value={poolTxHash} onCopy={onCopy} />
+            </div>
+
+            <div className="flex shrink-0 gap-2">
+              <Button variant="outline" onClick={() => onCopy(poolTxHash, 'stellar-tx')}>
+                <Copy className="mr-2 h-4 w-4" />
+                {copied === 'stellar-tx' ? 'Copied' : 'Copy tx'}
+              </Button>
+
+              <Button
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                onClick={() => {
+                  const url = stellarTxUrl(poolTxHash);
+                  if (url) window.open(url, '_blank');
+                }}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                View on Stellar
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2">
+              <Layers3 className="h-5 w-5 text-emerald-600" />
+              <h2 className="text-lg font-semibold text-slate-900">Shielded note details</h2>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <HashRow label="Merkle root" value={root} onCopy={onCopy} />
+              <HashRow label="Proof hash" value={data.proofHash} onCopy={onCopy} />
+              <HashRow
+                label="Sample commitment"
+                value={data.employees.find((item) => item.commitment)?.commitment}
+                onCopy={onCopy}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              <h2 className="text-lg font-semibold text-slate-900">Pool summary</h2>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <SummaryRow
+                icon={<CalendarDays className="h-4 w-4" />}
+                label="Period"
+                value={`${new Date(data.periodStart).toLocaleDateString()} to ${new Date(
+                  data.periodEnd
+                ).toLocaleDateString()}`}
+              />
+              <SummaryRow
+                icon={<Users className="h-4 w-4" />}
+                label="Employees"
+                value={`${poolPayees.length}`}
+              />
+              <SummaryRow label="Notes" value={`${noteCount}`} />
+              <SummaryRow label="Total XLM" value={`${formatAmount(data.totalXlm)} XLM`} />
+              <SummaryRow label="Total USDC" value={`${formatAmount(data.totalUsdc)} USDC`} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-emerald-600" />
+            <h2 className="text-lg font-semibold text-slate-900">Employee withdrawal readiness</h2>
+          </div>
+
+          <p className="mt-1 text-sm text-slate-500">
+            The rows below are grouped by employee for the employer dashboard. The pool contract
+            stores only notes and commitments.
+          </p>
+
+          <div className="mt-5 divide-y divide-slate-100">
+            {poolPayees.map((payee) => {
+              const payeeTxUrl = stellarTxUrl(payee.txHash || poolTxHash);
+
+              return (
+                <div
+                  key={payee.employeeId}
+                  className="grid gap-4 py-5 lg:grid-cols-[1fr_180px_140px_220px] lg:items-center"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-900">
+                      {payee.employee?.fullName || `Employee #${payee.employeeId}`}
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      {payee.employee?.email || 'No email'}
+                    </p>
+
+                    <p className="mt-1 text-xs text-slate-400">
+                      Wallet is not stored in the pool note.
+                    </p>
+
+                    <div className="mt-2 space-y-1">
+                      {payee.sampleCommitments.map((commitment) => (
+                        <p key={commitment} className="truncate font-mono text-xs text-slate-400">
+                          Commitment: {shortHash(commitment)}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-sm font-semibold text-slate-900">
+                    {Object.entries(payee.currencyTotals).map(([currency, amount]) => (
+                      <p key={currency}>
+                        {formatAmount(amount)} {currency}
+                      </p>
+                    ))}
+                  </div>
+
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-center text-xs font-medium text-emerald-700">
+                    {payee.noteCount} notes
+                  </span>
+
+                  <div className="space-y-2">
+                    <p className="rounded-2xl bg-slate-50 p-3 text-xs text-slate-500">
+                      Withdrawal page pending. Employee will claim using encrypted note proof.
+                    </p>
+
+                    {payeeTxUrl && (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => window.open(payeeTxUrl, '_blank')}
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        Stellar tx
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+function ConfidentialPayrollDetail({
+  data,
+  generatedResult,
+  copied,
+  verified,
+  executeTxHash,
+  submitTxHash,
+  onCopy,
+}: {
+  data: PayrollRunDetail;
+  generatedResult: GeneratedPayrollResult | null;
+  copied: string | null;
+  verified: boolean;
+  executeTxHash: string | null;
+  submitTxHash: string | null;
+  onCopy: (value?: string | null, label?: string) => void;
+}) {
+  const publicVerificationUrl = data.publicVerificationUrl;
+
+  return (
+    <>
       <Card className="overflow-hidden border-0 bg-white shadow-xl shadow-slate-200/50">
         <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 px-6 py-8 text-white">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm text-emerald-50">
@@ -240,19 +644,19 @@ export default function EmployerPayrollDetailPage() {
                   <Info label="Status" value={data.status || 'unknown'} />
                 </div>
 
-                <HashBox label="Execution transaction" value={executeTxHash} onCopy={copy} />
+                <HashBox label="Execution transaction" value={executeTxHash} onCopy={onCopy} />
 
                 {submitTxHash && submitTxHash !== executeTxHash && (
                   <HashBox
                     label="Proof submission transaction"
                     value={submitTxHash}
-                    onCopy={copy}
+                    onCopy={onCopy}
                   />
                 )}
               </div>
 
               <div className="flex shrink-0 gap-2">
-                <Button variant="outline" onClick={() => copy(executeTxHash, 'stellar-tx')}>
+                <Button variant="outline" onClick={() => onCopy(executeTxHash, 'stellar-tx')}>
                   <Copy className="mr-2 h-4 w-4" />
                   {copied === 'stellar-tx' ? 'Copied' : 'Copy tx'}
                 </Button>
@@ -290,7 +694,7 @@ export default function EmployerPayrollDetailPage() {
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => copy(publicVerificationUrl, 'public')}>
+                <Button variant="outline" onClick={() => onCopy(publicVerificationUrl, 'public')}>
                   <Copy className="mr-2 h-4 w-4" />
                   {copied === 'public' ? 'Copied' : 'Copy'}
                 </Button>
@@ -324,7 +728,7 @@ export default function EmployerPayrollDetailPage() {
                 </p>
               </div>
 
-              <Button variant="outline" onClick={() => copy(data.auditKey, 'audit-key')}>
+              <Button variant="outline" onClick={() => onCopy(data.auditKey, 'audit-key')}>
                 <Copy className="mr-2 h-4 w-4" />
                 {copied === 'audit-key' ? 'Copied' : 'Copy key'}
               </Button>
@@ -339,9 +743,9 @@ export default function EmployerPayrollDetailPage() {
             <h2 className="text-lg font-semibold text-slate-900">Proof details</h2>
 
             <div className="mt-5 space-y-4">
-              <HashRow label="Batch root" value={data.batchRoot} onCopy={copy} />
-              <HashRow label="Payroll run hash" value={data.payrollRunHash} onCopy={copy} />
-              <HashRow label="Proof hash" value={data.proofHash} onCopy={copy} />
+              <HashRow label="Batch root" value={data.batchRoot} onCopy={onCopy} />
+              <HashRow label="Payroll run hash" value={data.payrollRunHash} onCopy={onCopy} />
+              <HashRow label="Proof hash" value={data.proofHash} onCopy={onCopy} />
             </div>
           </CardContent>
         </Card>
@@ -428,7 +832,7 @@ export default function EmployerPayrollDetailPage() {
                         <Button
                           variant="outline"
                           className="w-full"
-                          onClick={() => copy(verificationUrl, `employee-${payee.id}`)}
+                          onClick={() => onCopy(verificationUrl, `employee-${payee.id}`)}
                         >
                           <Copy className="mr-2 h-4 w-4" />
                           {copied === `employee-${payee.id}` ? 'Copied' : 'Copy verification'}
@@ -463,7 +867,7 @@ export default function EmployerPayrollDetailPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </>
   );
 }
 

@@ -22,6 +22,8 @@ import { zetapayConfig } from '@/lib/zetapay/contracts/config';
 
 export const runtime = 'nodejs';
 
+type PayrollCurrency = 'XLM' | 'USDC';
+
 type PoolPayrollRequest = {
   action?: 'prepare' | 'submitSigned';
   walletAddress?: string;
@@ -31,7 +33,7 @@ type PoolPayrollRequest = {
   items?: {
     personId: string;
     amount: string;
-    currency: 'XLM' | 'USDC';
+    currency: PayrollCurrency;
   }[];
   payrollRunId?: number;
   signedXdr?: string;
@@ -42,8 +44,9 @@ type PoolNotePayload = {
   personId: string;
   walletAddress: string;
   amount: string;
+  employeeTotalAmount: string;
   atomicAmount: string;
-  currency: 'XLM' | 'USDC';
+  currency: PayrollCurrency;
   token: string;
   tokenHash: string;
   secret: string;
@@ -54,6 +57,8 @@ type PoolNotePayload = {
   recipientHash: string;
   withdrawalHash: string;
   payeeIndex: number;
+  employeeNoteIndex: number;
+  denomination: string;
 };
 
 type StoredPoolPayload = {
@@ -66,11 +71,24 @@ type StoredPoolPayload = {
     usdc: number;
     gross: number;
   };
+  denominationPolicy: {
+    enabled: true;
+    atomicScale: number;
+    xlm: string[];
+    usdc: string[];
+  };
 };
 
 const FIELD_MODULUS = BigInt(
   '21888242871839275222246405745257275088548364400416034343698204186575808495617'
 );
+
+const ATOMIC_SCALE = BigInt(10_000_000);
+
+const FIXED_DENOMINATIONS: Record<PayrollCurrency, string[]> = {
+  XLM: ['1000', '500', '100', '50', '20', '10', '5', '1', '0.5', '0.1', '0.01'],
+  USDC: ['1000', '500', '100', '50', '20', '10', '5', '1', '0.5', '0.1', '0.01'],
+};
 
 function generateAuditKey() {
   const hex = crypto.randomBytes(10).toString('hex').toUpperCase();
@@ -91,16 +109,70 @@ function randomField() {
   return hashToField(crypto.randomBytes(32).toString('hex'));
 }
 
-function toAtomicAmount(amount: string) {
-  return Math.round(Number(amount) * 10_000_000).toString();
+function decimalToAtomic(amount: string) {
+  const normalized = amount.trim();
+
+  if (!/^\d+(\.\d{1,7})?$/.test(normalized)) {
+    throw new Error('Amount must use at most 7 decimal places.');
+  }
+
+  const [wholePart, fractionPart = ''] = normalized.split('.');
+  const whole = BigInt(wholePart || '0');
+  const fraction = BigInt(fractionPart.padEnd(7, '0'));
+
+  return whole * ATOMIC_SCALE + fraction;
 }
 
-function tokenForCurrency(currency: 'XLM' | 'USDC') {
+function atomicToDisplay(atomic: bigint) {
+  const whole = atomic / ATOMIC_SCALE;
+  const fraction = atomic % ATOMIC_SCALE;
+
+  if (fraction === BigInt(0)) return whole.toString();
+
+  const fractionText = fraction.toString().padStart(7, '0').replace(/0+$/, '');
+
+  return `${whole.toString()}.${fractionText}`;
+}
+
+function tokenForCurrency(currency: PayrollCurrency) {
   return currency === 'XLM' ? zetapayConfig.xlmTokenContract : zetapayConfig.usdcTokenContract;
 }
 
-function tokenHashForCurrency(currency: 'XLM' | 'USDC') {
+function tokenHashForCurrency(currency: PayrollCurrency) {
   return currency === 'XLM' ? '0' : '1';
+}
+
+function denominationAtoms(currency: PayrollCurrency) {
+  return FIXED_DENOMINATIONS[currency]
+    .map((amount) => decimalToAtomic(amount))
+    .filter((amount) => amount > BigInt(0))
+    .sort((a, b) => {
+      if (a > b) return -1;
+      if (a < b) return 1;
+      return 0;
+    });
+}
+
+function splitIntoFixedDenominations(currency: PayrollCurrency, amount: string) {
+  let remaining = decimalToAtomic(amount);
+  const chunks: bigint[] = [];
+
+  if (remaining <= BigInt(0)) {
+    throw new Error('Amount must be greater than zero.');
+  }
+
+  for (const denomination of denominationAtoms(currency)) {
+    while (remaining >= denomination) {
+      chunks.push(denomination);
+      remaining -= denomination;
+    }
+  }
+
+  if (remaining > BigInt(0)) {
+    chunks.push(remaining);
+  }
+
+  return chunks;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -207,7 +279,7 @@ async function buildPoolPayload({
     item: {
       personId: string;
       amount: string;
-      currency: 'XLM' | 'USDC';
+      currency: PayrollCurrency;
     };
     employee: typeof employees.$inferSelect;
   }[];
@@ -216,53 +288,72 @@ async function buildPoolPayload({
   const { poseidonHash, buildMerkleTree } = await loadMerkleHelpers();
 
   const notes: PoolNotePayload[] = [];
+  let globalNoteIndex = 0;
 
-  for (const [index, { item, employee }] of orderedItems.entries()) {
-    const atomicAmount = toAtomicAmount(item.amount);
-    const tokenHash = tokenHashForCurrency(item.currency);
-    const secret = randomField();
-    const nullifier = randomField();
-    const salt = randomField();
-    const recipientHash = hashToField(employee.walletAddress);
-    const nullifierHash = (await poseidonHash([BigInt(nullifier)])).toString();
+  for (const { item, employee } of orderedItems) {
+    const chunks = splitIntoFixedDenominations(item.currency, item.amount);
 
-    const commitment = (
-      await poseidonHash([
-        BigInt(secret),
-        BigInt(nullifier),
-        BigInt(atomicAmount),
-        BigInt(tokenHash),
-        BigInt(salt),
-      ])
-    ).toString();
+    for (const [employeeNoteIndex, atomicChunk] of chunks.entries()) {
+      const atomicAmount = atomicChunk.toString();
+      const displayAmount = atomicToDisplay(atomicChunk);
+      const tokenHash = tokenHashForCurrency(item.currency);
+      const secret = randomField();
+      const nullifier = randomField();
+      const salt = randomField();
+      const recipientHash = hashToField(employee.walletAddress);
+      const nullifierHash = (await poseidonHash([BigInt(nullifier)])).toString();
 
-    const withdrawalHash = (
-      await poseidonHash([
-        BigInt(nullifierHash),
-        BigInt(recipientHash),
-        BigInt(atomicAmount),
-        BigInt(tokenHash),
-      ])
-    ).toString();
+      const commitment = (
+        await poseidonHash([
+          BigInt(secret),
+          BigInt(nullifier),
+          BigInt(atomicAmount),
+          BigInt(tokenHash),
+          BigInt(salt),
+        ])
+      ).toString();
 
-    notes.push({
-      employeeId: employee.id,
-      personId: item.personId,
-      walletAddress: employee.walletAddress,
-      amount: item.amount,
-      atomicAmount,
-      currency: item.currency,
-      token: tokenForCurrency(item.currency),
-      tokenHash,
-      secret,
-      nullifier,
-      nullifierHash,
-      salt,
-      commitment,
-      recipientHash,
-      withdrawalHash,
-      payeeIndex: index,
-    });
+      const withdrawalHash = (
+        await poseidonHash([
+          BigInt(nullifierHash),
+          BigInt(recipientHash),
+          BigInt(atomicAmount),
+          BigInt(tokenHash),
+        ])
+      ).toString();
+
+      notes.push({
+        employeeId: employee.id,
+        personId: item.personId,
+        walletAddress: employee.walletAddress,
+        amount: displayAmount,
+        employeeTotalAmount: item.amount,
+        atomicAmount,
+        currency: item.currency,
+        token: tokenForCurrency(item.currency),
+        tokenHash,
+        secret,
+        nullifier,
+        nullifierHash,
+        salt,
+        commitment,
+        recipientHash,
+        withdrawalHash,
+        payeeIndex: globalNoteIndex,
+        employeeNoteIndex,
+        denomination: displayAmount,
+      });
+
+      globalNoteIndex += 1;
+    }
+  }
+
+  if (notes.length > BATCH_SIZE) {
+    return Promise.reject(
+      new Error(
+        `Fixed denomination split created ${notes.length} notes. This endpoint currently supports ${BATCH_SIZE} notes.`
+      )
+    );
   }
 
   const paddedCommitments = [
@@ -281,6 +372,7 @@ async function buildPoolPayload({
       periodStart,
       periodEnd,
       root,
+      fixedDenomination: true,
       ...note,
       createdAt: new Date().toISOString(),
     })
@@ -305,7 +397,16 @@ async function buildPoolPayload({
     periodEnd,
     root,
     totals,
+    fixedDenomination: true,
+    noteCount: notes.length,
+    employeeCount: orderedItems.length,
     notes,
+    denominationPolicy: {
+      enabled: true,
+      atomicScale: Number(ATOMIC_SCALE),
+      xlm: FIXED_DENOMINATIONS.XLM,
+      usdc: FIXED_DENOMINATIONS.USDC,
+    },
     createdAt: new Date().toISOString(),
   });
 
@@ -315,6 +416,12 @@ async function buildPoolPayload({
     encryptedPayroll,
     encryptedNotes,
     totals,
+    denominationPolicy: {
+      enabled: true,
+      atomicScale: Number(ATOMIC_SCALE),
+      xlm: FIXED_DENOMINATIONS.XLM,
+      usdc: FIXED_DENOMINATIONS.USDC,
+    },
   };
 }
 
@@ -419,13 +526,6 @@ async function preparePoolPayroll(
     return NextResponse.json({ error: 'At least one payee is required' }, { status: 400 });
   }
 
-  if (body.items.length > BATCH_SIZE) {
-    return NextResponse.json(
-      { error: `This endpoint currently supports ${BATCH_SIZE} payees.` },
-      { status: 400 }
-    );
-  }
-
   const employeeIds = body.items.map((item) => Number.parseInt(item.personId, 10));
 
   if (employeeIds.some((id) => Number.isNaN(id))) {
@@ -498,6 +598,8 @@ async function preparePoolPayroll(
       proofPublicInputs: {
         root: payload.root,
         commitments: payload.notes.map((note) => note.commitment),
+        fixedDenomination: true,
+        noteCount: payload.notes.length,
       },
       status: 'pending',
       processedBy: enterprise.walletAddress,
@@ -508,6 +610,9 @@ async function preparePoolPayroll(
         sourceOfTruth: 'soroban',
         encryptedPayroll: payload.encryptedPayroll,
         encryptedNotes: payload.encryptedNotes,
+        fixedDenomination: true,
+        noteCount: payload.notes.length,
+        denominationPolicy: payload.denominationPolicy,
         soroban: {
           stage: 'prepared',
           poolContractId: zetapayConfig.poolContractId,
@@ -568,6 +673,8 @@ async function preparePoolPayroll(
         payeeCount: orderedItems.length,
         batchCount: 1,
       },
+      fixedDenomination: true,
+      noteCount: payload.notes.length,
     },
     { status: 201 }
   );
@@ -693,6 +800,8 @@ async function submitSignedPoolPayroll(
     submitTxHash: submitResult.txHash,
     executeTxHash: submitResult.txHash,
     employerPayrollUrl: `/dashboard/employer/payroll/${updatedPayrollRun.id}`,
+    fixedDenomination: true,
+    noteCount: payload.notes.length,
     totals: {
       xlm: Number(updatedPayrollRun.totalXlm),
       usdc: Number(updatedPayrollRun.totalUsdc),

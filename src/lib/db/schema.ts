@@ -460,7 +460,7 @@ export const payrollSettings = pgTable(
         onDelete: 'cascade',
         onUpdate: 'cascade',
       }),
-    defaultCurrency: varchar('default_currency', { length: 3 }).default('USDC'),
+    defaultCurrency: varchar('default_currency', { length: 10 }).default('USDC'),
     defaultTaxFilingStatus: taxFilingStatusEnum('default_tax_filing_status').default('single'),
     taxRegion: varchar('tax_region', { length: 2 }).default('US'),
     payFrequency: varchar('pay_frequency', { length: 20 }).default('monthly'),
