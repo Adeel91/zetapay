@@ -93,7 +93,14 @@ const FIXED_DENOMINATIONS: Record<PayrollCurrency, string[]> = {
 function generateAuditKey() {
   const hex = crypto.randomBytes(10).toString('hex').toUpperCase();
 
-  return `AUD${hex.slice(0, 4)}${hex.slice(4, 8)}${hex.slice(8, 12)}${hex.slice(12, 16)}${hex.slice(16, 20)}`;
+  return [
+    'AUD',
+    hex.slice(0, 4),
+    hex.slice(4, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+  ].join('-');
 }
 
 function sha256Hex(value: string) {

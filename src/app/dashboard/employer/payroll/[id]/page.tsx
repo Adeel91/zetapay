@@ -448,6 +448,32 @@ function ShieldedPoolDetail({
         </CardContent>
       </Card>
 
+      {data.auditKey && (
+        <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Auditor access key</h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Share this key only with an authorized auditor. It unlocks the encrypted shielded
+                  pool payroll audit report, including employer totals and withdrawal note metadata.
+                </p>
+
+                <p className="mt-3 rounded-2xl bg-amber-50 p-3 font-mono text-sm font-semibold tracking-wide text-amber-800">
+                  {data.auditKey}
+                </p>
+              </div>
+
+              <Button variant="outline" onClick={() => onCopy(data.auditKey, 'audit-key')}>
+                <Copy className="mr-2 h-4 w-4" />
+                {copied === 'audit-key' ? 'Copied' : 'Copy key'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
           <CardContent className="p-6">
