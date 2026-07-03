@@ -80,17 +80,37 @@ function getStellarLibraryPath() {
   return path.join(process.cwd(), '.stellar-cli', 'lib');
 }
 
+function getStellarRuntimeHome() {
+  const runtimeHome = path.join(os.tmpdir(), 'zetapay-stellar-home');
+
+  fs.mkdirSync(runtimeHome, { recursive: true });
+  fs.mkdirSync(path.join(runtimeHome, 'config'), { recursive: true });
+  fs.mkdirSync(path.join(runtimeHome, 'cache'), { recursive: true });
+  fs.mkdirSync(path.join(runtimeHome, 'data'), { recursive: true });
+  fs.mkdirSync(path.join(runtimeHome, 'tmp'), { recursive: true });
+
+  return runtimeHome;
+}
+
 function runStellar(args: string[]) {
   const stellarBinary = getStellarBinaryPath();
   const stellarLibraryPath = getStellarLibraryPath();
+  const stellarRuntimeHome = getStellarRuntimeHome();
 
   log('stellar command', `${stellarBinary} ${args.join(' ')}`);
 
   const result = spawnSync(stellarBinary, args, {
-    cwd: process.cwd(),
+    cwd: os.tmpdir(),
     encoding: 'utf8',
     env: {
       ...process.env,
+
+      HOME: stellarRuntimeHome,
+      TMPDIR: path.join(stellarRuntimeHome, 'tmp'),
+      XDG_CONFIG_HOME: path.join(stellarRuntimeHome, 'config'),
+      XDG_CACHE_HOME: path.join(stellarRuntimeHome, 'cache'),
+      XDG_DATA_HOME: path.join(stellarRuntimeHome, 'data'),
+
       LD_LIBRARY_PATH: [stellarLibraryPath, process.env.LD_LIBRARY_PATH].filter(Boolean).join(':'),
     },
   });
