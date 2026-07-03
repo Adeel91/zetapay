@@ -57,10 +57,31 @@ export type GeneratedPayrollProof = {
 function runCommand(command: string, args: string[]) {
   const childProcess = nodeRequire('node:child_process') as typeof import('node:child_process');
 
-  childProcess.execFileSync(command, args, {
-    cwd: process.cwd(),
-    stdio: 'inherit',
-  });
+  try {
+    childProcess.execFileSync(command, args, {
+      cwd: process.cwd(),
+      stdio: 'pipe',
+      encoding: 'utf8',
+      env: process.env,
+    });
+  } catch (error) {
+    const err = error as {
+      stdout?: string;
+      stderr?: string;
+      message?: string;
+      status?: number;
+      signal?: NodeJS.Signals;
+    };
+
+    console.error('Command failed:', command, args.join(' '));
+    console.error('Status:', err.status);
+    console.error('Signal:', err.signal);
+    console.error('Stdout:', err.stdout || '');
+    console.error('Stderr:', err.stderr || '');
+    console.error('Message:', err.message || '');
+
+    throw error;
+  }
 }
 
 function sha256Hex(value: string) {
@@ -434,8 +455,13 @@ export async function generatePayrollProof({
   try {
     runCommand('node', [witnessGeneratorPath, payrollWasmPath, inputPath, witnessPath]);
 
-    runCommand('npx', [
-      'snarkjs',
+    const snarkjsPath = path.join(process.cwd(), 'node_modules', '.bin', 'snarkjs');
+
+    if (!fs.existsSync(snarkjsPath)) {
+      throw new Error(`Missing snarkjs binary: ${snarkjsPath}`);
+    }
+
+    runCommand(snarkjsPath, [
       'groth16',
       'prove',
       payrollZkeyPath,
