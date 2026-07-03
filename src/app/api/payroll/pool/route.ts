@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import crypto from 'node:crypto';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { and, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
@@ -255,16 +254,22 @@ function assertWalletMatchesEnterprise(
 }
 
 async function loadMerkleHelpers() {
-  const modulePath = path.join(process.cwd(), 'circuits/payroll/scripts/merkle.js');
-  const moduleUrl = pathToFileURL(modulePath).href;
+  const circomlibjs = (await import('circomlibjs')) as {
+    buildPoseidon: () => Promise<{
+      F: {
+        toString: (value: unknown) => string;
+      };
+      (values: bigint[]): unknown;
+    }>;
+  };
 
-  const dynamicImport = new Function('moduleUrl', 'return import(moduleUrl);') as (
-    moduleUrl: string
-  ) => Promise<{
-    poseidonHash: (values: bigint[]) => Promise<bigint>;
-  }>;
+  const poseidon = await circomlibjs.buildPoseidon();
 
-  return dynamicImport(moduleUrl);
+  return {
+    poseidonHash: async (values: bigint[]) => {
+      return BigInt(poseidon.F.toString(poseidon(values)));
+    },
+  };
 }
 
 async function loadSnarkJs() {

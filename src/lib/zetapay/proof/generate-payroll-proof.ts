@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
 
 import type { PayrollBatchCurrency } from '@/lib/zk/payroll-batch';
 
@@ -178,17 +177,43 @@ function buildPayrollRunHashes({
 }
 
 async function loadMerkleHelpers() {
-  const modulePath = path.join(process.cwd(), 'circuits', 'payroll', 'scripts', 'merkle.js');
-  const moduleUrl = pathToFileURL(modulePath).href;
+  const circomlibjs = (await import('circomlibjs')) as {
+    buildPoseidon: () => Promise<{
+      F: {
+        toString: (value: unknown) => string;
+      };
+      (values: bigint[]): unknown;
+    }>;
+  };
 
-  const dynamicImport = new Function('moduleUrl', 'return import(moduleUrl);') as (
-    moduleUrl: string
-  ) => Promise<{
-    poseidonHash: (values: bigint[]) => Promise<bigint>;
-    buildMerkleTree: (values: string[]) => Promise<{ root: bigint }>;
-  }>;
+  const poseidon = await circomlibjs.buildPoseidon();
 
-  return dynamicImport(moduleUrl);
+  const poseidonHash = async (values: bigint[]) => {
+    return BigInt(poseidon.F.toString(poseidon(values)));
+  };
+
+  const buildMerkleTree = async (values: string[]) => {
+    let current = values.map((value) => BigInt(value || '0'));
+
+    while (current.length > 1) {
+      const next: bigint[] = [];
+
+      for (let index = 0; index < current.length; index += 2) {
+        next.push(await poseidonHash([current[index], current[index + 1]]));
+      }
+
+      current = next;
+    }
+
+    return {
+      root: current[0],
+    };
+  };
+
+  return {
+    poseidonHash,
+    buildMerkleTree,
+  };
 }
 
 function getPayrollArtifactPaths() {
