@@ -92,12 +92,10 @@ next-env.d.ts
 # Payroll generated artifacts
 # =======================================================
 
-/circuits/payroll/build/payroll_js/
 /circuits/payroll/build/*.wtns
 /circuits/payroll/build/*.r1cs
 /circuits/payroll/build/*.sym
 /circuits/payroll/build/*_0000.zkey
-/circuits/payroll/build/*_final.zkey
 
 # Ignore generated json
 /circuits/payroll/build/*.json
@@ -111,13 +109,10 @@ next-env.d.ts
 # Shielded Pool generated artifacts
 # =======================================================
 
-/circuits/pool/build/deposit_js/
-/circuits/pool/build/withdraw_js/
 /circuits/pool/build/*.wtns
 /circuits/pool/build/*.r1cs
 /circuits/pool/build/*.sym
 /circuits/pool/build/*_0000.zkey
-/circuits/pool/build/*_final.zkey
 
 # Ignore generated json
 /circuits/pool/build/*.json
