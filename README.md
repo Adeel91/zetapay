@@ -4,6 +4,8 @@
 
 <h1 align="center">ZetaPay</h1>
 
+[ZetaPay Demo](https://zetapay.vercel.app)
+
 <p align="center">
   <strong>Enterprise Confidential & Shielded Payroll on Stellar</strong>
 </p>
