@@ -107,12 +107,21 @@ function runStellar(args: string[]) {
   const result = spawnSync('stellar', args, {
     cwd: process.cwd(),
     encoding: 'utf8',
+    env: process.env,
   });
 
   const output = `${result.stdout || ''}\n${result.stderr || ''}`.trim();
 
+  if (result.error) {
+    console.error('[zetapay] stellar spawn error', result.error);
+    throw new Error(`Stellar CLI spawn failed: ${result.error.message}`);
+  }
+
   if (result.status !== 0) {
-    log('stellar command failed', output);
+    console.error('[zetapay] stellar exit status', result.status);
+    console.error('[zetapay] stellar stdout', result.stdout || '');
+    console.error('[zetapay] stellar stderr', result.stderr || '');
+
     throw new Error(output || 'Stellar command failed');
   }
 
