@@ -84,6 +84,10 @@ function runCommand(command: string, args: string[]) {
   }
 }
 
+function getSnarkjsCliPath() {
+  return nodeRequire.resolve('snarkjs/build/cli.cjs');
+}
+
 function sha256Hex(value: string) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
@@ -323,22 +327,27 @@ export async function generatePayrollProof({
     activeRows.map((row) => row.payeeId.toString()),
     '0'
   );
+
   const recipientHashes = padArray(
     activeRows.map((row) => row.recipientHash),
     '0'
   );
+
   const amounts = padArray(
     activeRows.map((row) => row.amount.toString()),
     '0'
   );
+
   const salts = padArray(
     activeRows.map((row) => row.salt),
     '0'
   );
+
   const payeeTypes = padArray(
     activeRows.map((row) => row.payeeType.toString()),
     '0'
   );
+
   const tokenTypes = padArray(
     activeRows.map((row) => row.tokenType.toString()),
     '0'
@@ -455,13 +464,10 @@ export async function generatePayrollProof({
   try {
     runCommand('node', [witnessGeneratorPath, payrollWasmPath, inputPath, witnessPath]);
 
-    const snarkjsPath = path.join(process.cwd(), 'node_modules', '.bin', 'snarkjs');
+    const snarkjsCliPath = getSnarkjsCliPath();
 
-    if (!fs.existsSync(snarkjsPath)) {
-      throw new Error(`Missing snarkjs binary: ${snarkjsPath}`);
-    }
-
-    runCommand(snarkjsPath, [
+    runCommand('node', [
+      snarkjsCliPath,
       'groth16',
       'prove',
       payrollZkeyPath,
