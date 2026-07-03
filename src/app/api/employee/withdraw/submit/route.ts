@@ -69,6 +69,8 @@ export async function POST(request: Request) {
     await db
       .update(payrollEmployees)
       .set({
+        status: 'cancelled',
+        processedAt: now,
         paymentVerifiedAt: now,
         txHash: result.txHash,
         updatedAt: now,
@@ -79,7 +81,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       payrollEmployeeId: row.id,
-      txHash: result.txHash,
+      withdrawalTxHash: result.txHash,
+      withdrawalStellarUrl: `https://stellar.expert/explorer/testnet/tx/${result.txHash}`,
       result,
     });
   } catch (error) {

@@ -19,9 +19,12 @@ type EmployeePayroll = {
   mode: SettlementMode;
   status: string;
   totals: Record<string, string>;
+  availableTotals?: Record<string, string>;
   amount: string;
   currency: string;
   noteCount: number;
+  availableNoteCount: number;
+  withdrawnNoteCount: number;
   txHash: string | null;
   stellarUrl: string | null;
   proofHash: string | null;
@@ -55,8 +58,8 @@ function modeLabel(mode: SettlementMode) {
 
 function statusLabel(status: string, mode: SettlementMode) {
   if (mode === 'shielded_pool') {
-    if (status === 'withdrawn') return 'Withdrawn';
-    if (status === 'partially_withdrawn') return 'Partially Withdrawn';
+    if (status === 'completed') return 'Completed';
+    if (status === 'processing') return 'Partially Completed';
     return 'Available To Withdraw';
   }
 
@@ -69,8 +72,8 @@ function statusLabel(status: string, mode: SettlementMode) {
 
 function statusClass(status: string, mode: SettlementMode) {
   if (mode === 'shielded_pool') {
-    if (status === 'withdrawn') return 'bg-emerald-50 text-emerald-700';
-    if (status === 'partially_withdrawn') return 'bg-amber-50 text-amber-700';
+    if (status === 'completed') return 'bg-emerald-50 text-emerald-700';
+    if (status === 'processing') return 'bg-amber-50 text-amber-700';
     return 'bg-blue-50 text-blue-700';
   }
 
@@ -89,11 +92,7 @@ function formatTotals(totals: Record<string, string>) {
 }
 
 function canWithdraw(payroll: EmployeePayroll) {
-  return (
-    payroll.mode === 'shielded_pool' &&
-    payroll.status !== 'withdrawn' &&
-    Number(payroll.amount || 0) > 0
-  );
+  return payroll.mode === 'shielded_pool' && payroll.status !== 'completed';
 }
 
 export default function EmployeePayrollPage() {
@@ -104,7 +103,10 @@ export default function EmployeePayrollPage() {
 
   const loadPayrolls = useCallback(async () => {
     try {
-      const response = await fetch(API.employee.payroll);
+      const response = await fetch(API.employee.payroll, {
+        cache: 'no-store',
+      });
+
       const body = await response.json();
 
       if (!response.ok) {
@@ -154,9 +156,7 @@ export default function EmployeePayrollPage() {
       <div className="flex min-h-[420px] items-center justify-center">
         <div className="max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <AlertCircle className="mx-auto h-10 w-10 text-amber-600" />
-
           <h1 className="mt-4 text-2xl font-bold text-slate-900">Payroll unavailable</h1>
-
           <p className="mt-2 text-sm text-slate-500">{error || 'Unable to load payroll history'}</p>
         </div>
       </div>
@@ -189,9 +189,7 @@ export default function EmployeePayrollPage() {
         <Card className="border-0 bg-white shadow-xl shadow-slate-200/50">
           <CardContent className="p-10 text-center">
             <WalletCards className="mx-auto h-10 w-10 text-slate-300" />
-
             <h2 className="mt-4 text-xl font-bold text-slate-900">No payrolls found</h2>
-
             <p className="mt-2 text-sm text-slate-500">
               Payroll records will appear here after your employer pays you.
             </p>
@@ -234,7 +232,7 @@ export default function EmployeePayrollPage() {
                     <span className="flex items-center gap-1">
                       <WalletCards className="h-4 w-4" />
                       {payroll.mode === 'shielded_pool'
-                        ? `${payroll.noteCount} pool notes`
+                        ? `${payroll.availableNoteCount} of ${payroll.noteCount} notes available`
                         : 'Direct payroll transfer'}
                     </span>
                   </div>
@@ -253,7 +251,7 @@ export default function EmployeePayrollPage() {
                     </Link>
                   ) : (
                     <Button disabled className="w-full">
-                      {payroll.mode === 'shielded_pool' ? 'Already Withdrawn' : 'Amount Received'}
+                      {payroll.mode === 'shielded_pool' ? 'Completed' : 'Amount Received'}
                     </Button>
                   )}
 

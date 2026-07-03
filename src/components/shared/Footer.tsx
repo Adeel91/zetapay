@@ -1,11 +1,12 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Code2, ShieldCheck, Sparkles } from 'lucide-react';
 import { ROUTES } from '@/config';
 
 const productLinks = [
   { label: 'Employer Dashboard', href: `${ROUTES.auth.root}` },
   { label: 'Auditor Dashboard', href: `${ROUTES.auth.root}` },
-  { label: 'Employee Verify', href: '/verify/demo' },
+  { label: 'Employee Payroll', href: `${ROUTES.auth.root}` },
 ];
 
 const proofLinks = [
@@ -24,13 +25,15 @@ export function Footer() {
         <div className="grid gap-10 lg:grid-cols-12">
           <div className="lg:col-span-5">
             <Link href="/" className="inline-flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/20">
-                <span className="text-lg font-extrabold">Z</span>
-              </div>
-              <div>
-                <span className="block text-xl font-extrabold tracking-tight">ZetaPay</span>
-                <span className="text-xs font-bold tracking-[0.22em] text-emerald-300 uppercase">
-                  Private payroll proofs
+              <Image src="/logo.svg" alt="ZetaPay" width={44} height={44} className="h-11 w-11" />
+
+              <div className="flex flex-col leading-none">
+                <span className="text-2xl font-extrabold tracking-tight text-white">
+                  Zeta<span className="text-emerald-400">Pay</span>
+                </span>
+
+                <span className="mt-1 text-[10px] font-semibold tracking-[0.32em] text-emerald-300 uppercase">
+                  Verified Payroll
                 </span>
               </div>
             </Link>
@@ -64,9 +67,9 @@ export function Footer() {
               <div className="mt-5 space-y-4">
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-sm font-bold text-white">Current milestone</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-400">
-                    Private payroll verification is live. Groth16 and Soroban verification are in
-                    progress.
+                  <p className="mt-5 max-w-md text-sm leading-7 text-slate-400">
+                    Verified payroll infrastructure powered by commitments, shielded pool
+                    withdrawals, encrypted verification links, audit keys, Stellar, and Soroban.
                   </p>
                 </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { LogOut, Menu, User, Wallet, X } from 'lucide-react';
@@ -302,12 +303,25 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
     <nav className="fixed top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-xl">
       <div className={`mx-auto px-4 sm:px-6 lg:px-8 ${isDashboard ? 'max-w-full' : 'max-w-7xl'}`}>
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 shadow-lg shadow-emerald-600/30">
-              <span className="text-base font-bold text-white">Z</span>
-            </div>
+          <Link href="/" className="flex items-center gap-1.5">
+            <Image
+              src="/logo.svg"
+              alt="ZetaPay"
+              width={36}
+              height={36}
+              priority
+              className="h-10 w-10"
+            />
 
-            <span className="text-xl font-bold text-slate-900">ZetaPay</span>
+            <div className="flex flex-col leading-none">
+              <span className="text-2xl font-extrabold tracking-tight text-slate-900">
+                Zeta<span className="text-emerald-600">Pay</span>
+              </span>
+
+              <span className="text-[10px] font-semibold tracking-[0.32em] text-slate-500 uppercase">
+                Verified Payroll
+              </span>
+            </div>
           </Link>
 
           <div className="hidden items-center gap-8 md:flex">

@@ -149,7 +149,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const primary = Object.entries(totals)[0];
     const currency = primary?.[0] || employee.preferredCurrency || 'USDC';
     const amount = primary?.[1] || '0';
-    const txHash = run.txHash || metadata.soroban?.lastTxHash || null;
+    const depositTxHash = run.txHash || metadata.soroban?.lastTxHash || null;
 
     if (mode === 'shielded_pool') {
       const root = metadata.soroban?.poolPayload?.root || run.batchRoot;
@@ -182,14 +182,20 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
       const notes = rows.map((row) => {
         const noteCurrency = row.payoutCurrency || employee.preferredCurrency || 'USDC';
+        const noteStatus = chainStatusForCommitment(row.commitment, chainNotes);
+        const withdrawalTxHash = noteStatus === 'withdrawn' ? row.txHash : null;
 
         return {
           id: row.id,
           commitment: row.commitment,
           amount: String(row.netSalary || '0'),
           currency: noteCurrency,
-          status: chainStatusForCommitment(row.commitment, chainNotes),
+          status: noteStatus,
           createdAt: row.createdAt.toISOString(),
+          depositTxHash,
+          depositStellarUrl: stellarTxUrl(depositTxHash),
+          withdrawalTxHash,
+          withdrawalStellarUrl: stellarTxUrl(withdrawalTxHash),
         };
       });
 
@@ -207,8 +213,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           noteCount: rows.length,
           availableNoteCount,
           withdrawnNoteCount,
-          txHash,
-          stellarUrl: stellarTxUrl(txHash),
+          txHash: depositTxHash,
+          stellarUrl: stellarTxUrl(depositTxHash),
+          depositTxHash,
+          depositStellarUrl: stellarTxUrl(depositTxHash),
           proofHash: run.proofHash,
           batchRoot: root,
           poolContractId: metadata.soroban?.poolContractId || null,
@@ -233,8 +241,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         noteCount: rows.length,
         availableNoteCount: 0,
         withdrawnNoteCount: 0,
-        txHash,
-        stellarUrl: stellarTxUrl(txHash),
+        txHash: depositTxHash,
+        stellarUrl: stellarTxUrl(depositTxHash),
+        depositTxHash,
+        depositStellarUrl: stellarTxUrl(depositTxHash),
         proofHash: run.proofHash,
         batchRoot: run.batchRoot,
         poolContractId: null,

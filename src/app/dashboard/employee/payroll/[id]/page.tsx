@@ -17,7 +17,6 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { API, ROUTES } from '@/config';
-
 import { signWithFreighter } from '@/lib/stellar/freighter';
 import { useWallet } from '@/app/providers';
 
@@ -50,6 +49,10 @@ type PayrollDetail = {
     currency: string;
     status: string;
     createdAt: string;
+    depositTxHash: string | null;
+    depositStellarUrl: string | null;
+    withdrawalTxHash: string | null;
+    withdrawalStellarUrl: string | null;
   }[];
 };
 
@@ -129,7 +132,10 @@ export default function EmployeePayrollDetailPage() {
 
   const loadPayroll = useCallback(async () => {
     try {
-      const response = await fetch(`/api/employee/payroll/${params.id}`);
+      const response = await fetch(`/api/employee/payroll/${params.id}`, {
+        cache: 'no-store',
+      });
+
       const body = await response.json();
 
       if (!response.ok) {
@@ -156,6 +162,10 @@ export default function EmployeePayrollDetailPage() {
   const canWithdraw = useMemo(() => {
     return Boolean(payroll && shieldedPool && payroll.canWithdraw);
   }, [payroll, shieldedPool]);
+
+  const withdrawnNotes = useMemo(() => {
+    return payroll?.notes.filter((note) => note.withdrawalStellarUrl) || [];
+  }, [payroll?.notes]);
 
   async function handleWithdraw() {
     if (!payroll || !walletAddress) return;
@@ -358,10 +368,24 @@ export default function EmployeePayrollDetailPage() {
                   <a href={payroll.stellarUrl} target="_blank" rel="noopener noreferrer">
                     <Button variant="outline" className="w-full">
                       <ExternalLink className="mr-2 h-4 w-4" />
-                      Stellar Tx
+                      Deposit Tx
                     </Button>
                   </a>
                 )}
+
+                {withdrawnNotes.map((note) => (
+                  <a
+                    key={note.id}
+                    href={note.withdrawalStellarUrl || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button variant="outline" className="w-full">
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Withdrawal Tx #{note.id}
+                    </Button>
+                  </a>
+                ))}
               </div>
             </CardContent>
           </Card>
