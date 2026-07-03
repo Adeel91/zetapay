@@ -67,7 +67,7 @@ function getStellarBinaryPath() {
     try {
       fs.chmodSync(bundledBinary, 0o755);
     } catch {
-      // Ignore chmod failures and let spawnSync report the real error if execution fails.
+      // Ignore chmod failures and let spawnSync report the real error.
     }
 
     return bundledBinary;
@@ -76,15 +76,23 @@ function getStellarBinaryPath() {
   return 'stellar';
 }
 
+function getStellarLibraryPath() {
+  return path.join(process.cwd(), '.stellar-cli', 'lib');
+}
+
 function runStellar(args: string[]) {
   const stellarBinary = getStellarBinaryPath();
+  const stellarLibraryPath = getStellarLibraryPath();
 
   log('stellar command', `${stellarBinary} ${args.join(' ')}`);
 
   const result = spawnSync(stellarBinary, args, {
     cwd: process.cwd(),
     encoding: 'utf8',
-    env: process.env,
+    env: {
+      ...process.env,
+      LD_LIBRARY_PATH: [stellarLibraryPath, process.env.LD_LIBRARY_PATH].filter(Boolean).join(':'),
+    },
   });
 
   const output = `${result.stdout || ''}\n${result.stderr || ''}`.trim();
