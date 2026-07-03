@@ -49,7 +49,6 @@
     "contracts:zetapay-payroll:check": "cd contracts && cargo check -p zetapay-payroll",
     "contracts:zetapay-pool:check": "cd contracts && cargo check -p zetapay-pool",
     "contracts:test": "yarn contracts:zetapay-verifier:test && yarn contracts:zetapay-payroll:test && yarn contracts:zetapay-pool:test",
-    "zetapay:test": "yarn payroll:rebuild && yarn contracts:test",
     "contracts:build": "cd contracts && stellar contract build",
     "contracts:deploy:verifier": "stellar contract deploy --wasm contracts/target/wasm32v1-none/release/zetapay_verifier.wasm --source-account zetapay-deployer --network testnet --alias zetapay-verifier",
     "contracts:deploy:payroll": "stellar contract deploy --wasm contracts/target/wasm32v1-none/release/zetapay_payroll.wasm --source-account zetapay-deployer --network testnet --alias zetapay-payroll",
@@ -57,7 +56,11 @@
     "contracts:initialize": "tsx scripts/contracts/initialize.ts",
     "contracts:initialize:pool": "tsx scripts/contracts/initialize-pool.ts",
     "contracts:deploy": "yarn contracts:build && yarn contracts:deploy:verifier && yarn contracts:deploy:payroll && yarn contracts:deploy:pool",
-    "contracts:redeploy:testnet": "yarn zetapay:test && yarn contracts:deploy"
+    "contracts:initialize:all": "yarn contracts:initialize && yarn contracts:initialize:pool",
+    "contracts:redeploy:testnet": "yarn zetapay:test && yarn contracts:deploy",
+    "pool:all": "yarn pool:inputs:deposit && yarn pool:witness:deposit && yarn pool:prove:deposit && yarn pool:verify:deposit && yarn pool:inputs:withdraw && yarn pool:witness:withdraw && yarn pool:prove:withdraw && yarn pool:verify:withdraw && yarn pool:fixtures",
+    "zetapay:test": "yarn payroll:rebuild && yarn pool:rebuild && yarn pool:all && yarn contracts:test",
+    "zetapay:full-deploy": "yarn lint && yarn type-check && yarn lint:rust && yarn zetapay:test && yarn contracts:deploy"
   },
   "dependencies": {
     "@stellar/freighter-api": "^6.0.1",
