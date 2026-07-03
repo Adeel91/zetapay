@@ -2,10 +2,12 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
 import type { PayrollBatchCurrency } from '@/lib/zk/payroll-batch';
+
+const nodeRequire = createRequire(import.meta.url);
 
 const FIELD_MODULUS = BigInt(
   '21888242871839275222246405745257275088548364400416034343698204186575808495617'
@@ -52,6 +54,15 @@ export type GeneratedPayrollProof = {
     totalUsdcDisplay: number;
   };
 };
+
+function runCommand(command: string, args: string[]) {
+  const childProcess = nodeRequire('node:child_process') as typeof import('node:child_process');
+
+  childProcess.execFileSync(command, args, {
+    cwd: process.cwd(),
+    stdio: 'inherit',
+  });
+}
 
 function sha256Hex(value: string) {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -167,7 +178,7 @@ function buildPayrollRunHashes({
 }
 
 async function loadMerkleHelpers() {
-  const modulePath = path.join(process.cwd(), 'circuits/payroll/scripts/merkle.js');
+  const modulePath = path.join(process.cwd(), 'circuits', 'payroll', 'scripts', 'merkle.js');
   const moduleUrl = pathToFileURL(modulePath).href;
 
   const dynamicImport = new Function('moduleUrl', 'return import(moduleUrl);') as (
@@ -178,6 +189,35 @@ async function loadMerkleHelpers() {
   }>;
 
   return dynamicImport(moduleUrl);
+}
+
+function getPayrollArtifactPaths() {
+  const root = process.cwd();
+
+  return {
+    witnessGeneratorPath: path.join(
+      root,
+      'circuits',
+      'payroll',
+      'build',
+      'payroll_js',
+      'generate_witness.js'
+    ),
+    payrollWasmPath: path.join(root, 'circuits', 'payroll', 'build', 'payroll_js', 'payroll.wasm'),
+    payrollZkeyPath: path.join(root, 'circuits', 'payroll', 'build', 'payroll_final.zkey'),
+  };
+}
+
+function assertPayrollArtifactsExist() {
+  const paths = getPayrollArtifactPaths();
+
+  for (const artifactPath of Object.values(paths)) {
+    if (!fs.existsSync(artifactPath)) {
+      throw new Error(`Missing payroll proof artifact: ${artifactPath}`);
+    }
+  }
+
+  return paths;
 }
 
 export async function generatePayrollProof({
@@ -237,27 +277,22 @@ export async function generatePayrollProof({
     activeRows.map((row) => row.payeeId.toString()),
     '0'
   );
-
   const recipientHashes = padArray(
     activeRows.map((row) => row.recipientHash),
     '0'
   );
-
   const amounts = padArray(
     activeRows.map((row) => row.amount.toString()),
     '0'
   );
-
   const salts = padArray(
     activeRows.map((row) => row.salt),
     '0'
   );
-
   const payeeTypes = padArray(
     activeRows.map((row) => row.payeeType.toString()),
     '0'
   );
-
   const tokenTypes = padArray(
     activeRows.map((row) => row.tokenType.toString()),
     '0'
@@ -369,31 +404,20 @@ export async function generatePayrollProof({
 
   fs.writeFileSync(inputPath, JSON.stringify(inputJson, null, 2));
 
-  try {
-    execFileSync(
-      'node',
-      [
-        'circuits/payroll/build/payroll_js/generate_witness.js',
-        'circuits/payroll/build/payroll_js/payroll.wasm',
-        inputPath,
-        witnessPath,
-      ],
-      { cwd: process.cwd(), stdio: 'inherit' }
-    );
+  const { witnessGeneratorPath, payrollWasmPath, payrollZkeyPath } = assertPayrollArtifactsExist();
 
-    execFileSync(
-      'npx',
-      [
-        'snarkjs',
-        'groth16',
-        'prove',
-        'circuits/payroll/build/payroll_final.zkey',
-        witnessPath,
-        proofPath,
-        publicPath,
-      ],
-      { cwd: process.cwd(), stdio: 'inherit' }
-    );
+  try {
+    runCommand('node', [witnessGeneratorPath, payrollWasmPath, inputPath, witnessPath]);
+
+    runCommand('npx', [
+      'snarkjs',
+      'groth16',
+      'prove',
+      payrollZkeyPath,
+      witnessPath,
+      proofPath,
+      publicPath,
+    ]);
 
     const proofJson = JSON.parse(fs.readFileSync(proofPath, 'utf8')) as {
       pi_a: string[];

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { and, eq } from 'drizzle-orm';
 
@@ -75,9 +75,9 @@ function poolStatus(chainNotes: ChainNoteState[]) {
   return 'deposited_in_pool';
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
+    const { id } = await context.params;
     const cookieStore = await cookies();
 
     const employeeIdValue = cookieStore.get('employeeId')?.value;

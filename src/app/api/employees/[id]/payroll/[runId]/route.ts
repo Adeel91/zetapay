@@ -1,16 +1,21 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { and, eq } from 'drizzle-orm';
+
 import { db } from '@/lib/db';
-import { payrollRuns, payrollEmployees, employees } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { employees, payrollEmployees, payrollRuns } from '@/lib/db/schema';
 
-export async function GET(request: Request, { params }: { params: { id: string; runId: string } }) {
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string; runId: string }> }
+) {
   try {
-    const { id, runId } = await params;
-    const employeeId = parseInt(id);
-    const payrollRunId = parseInt(runId);
+    const { id, runId } = await context.params;
 
-    if (isNaN(employeeId) || isNaN(payrollRunId)) {
+    const employeeId = Number(id);
+    const payrollRunId = Number(runId);
+
+    if (!Number.isFinite(employeeId) || !Number.isFinite(payrollRunId)) {
       return NextResponse.json({ error: 'Invalid ID provided' }, { status: 400 });
     }
 
@@ -21,7 +26,11 @@ export async function GET(request: Request, { params }: { params: { id: string; 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const enterpriseId = parseInt(enterpriseIdStr);
+    const enterpriseId = Number(enterpriseIdStr);
+
+    if (!Number.isFinite(enterpriseId)) {
+      return NextResponse.json({ error: 'Invalid enterprise ID' }, { status: 400 });
+    }
 
     const transaction = await db
       .select({
@@ -61,7 +70,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
       .limit(1)
       .execute();
 
-    if (!transaction || transaction.length === 0) {
+    if (!transaction.length) {
       return NextResponse.json({ error: 'Payroll transaction not found' }, { status: 404 });
     }
 

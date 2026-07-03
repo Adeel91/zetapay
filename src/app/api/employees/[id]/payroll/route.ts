@@ -1,12 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { db } from '@/lib/db';
 import { payrollRuns, payrollEmployees, employees } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
+    const { id } = await context.params;
     const employeeId = parseInt(id);
 
     if (isNaN(employeeId)) {
