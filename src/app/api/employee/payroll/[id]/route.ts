@@ -75,7 +75,7 @@ function poolStatus(chainNotes: ChainNoteState[]) {
   return 'deposited_in_pool';
 }
 
-export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
     const cookieStore = await cookies();
