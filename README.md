@@ -740,19 +740,20 @@ This initializes the confidential payroll contract and the shielded pool contrac
 
 ## 📸 Platform Preview
 
-> _Replace with actual screenshots:_
->
-> - Landing Page (`src/app/(marketing)`)
-> - Employer Dashboard (`src/app/employer`)
-> - Payroll Creation
-> - Shielded Pool Withdrawal
+<p align="center">
+  <img src="docs/screenshots/landing.png" width="47%" />
+  <img src="docs/screenshots/employer-dashboard.png" width="47%" />
+</p>
 
-```
-docs/screenshots/landing.png
-docs/screenshots/employer-dashboard.png
-docs/screenshots/payroll-history.png
-docs/screenshots/shielded-withdrawal.png
-```
+<p align="center">
+  <img src="docs/screenshots/employer-payroll.png" width="47%" />
+  <img src="docs/screenshots/employee-payroll-history.png" width="47%" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/employee-payroll-withdraw.png" width="47%" />
+  <img src="docs/screenshots/auditor-report.png" width="47%" />
+</p>
 
 ---
 
