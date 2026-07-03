@@ -28,7 +28,7 @@ export async function POST(request: Request) {
           walletAddress: walletAddress,
           companyName: 'ZetaPay Corporate Client',
           companyEmail: 'company@zetapay.com',
-          country: 'US',
+          country: 'EU',
           isActive: true,
         })
         .returning({ id: enterprises.id })
