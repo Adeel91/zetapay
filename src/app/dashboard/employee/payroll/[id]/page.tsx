@@ -16,7 +16,10 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { ROUTES } from '@/config';
+import { API, ROUTES } from '@/config';
+
+import { signWithFreighter } from '@/lib/stellar/freighter';
+import { useWallet } from '@/app/providers';
 
 type SettlementMode = 'confidential_payroll' | 'shielded_pool';
 
@@ -114,6 +117,7 @@ function statusClass(status: string, mode: SettlementMode) {
 }
 
 export default function EmployeePayrollDetailPage() {
+  const { walletAddress } = useWallet();
   const params = useParams<{ id: string }>();
 
   const [data, setData] = useState<PayrollDetailResponse | null>(null);
@@ -154,26 +158,45 @@ export default function EmployeePayrollDetailPage() {
   }, [payroll, shieldedPool]);
 
   async function handleWithdraw() {
-    if (!payroll) return;
+    if (!payroll || !walletAddress) return;
 
     setError(null);
     setWithdrawSuccess(null);
     setWithdrawing(true);
 
     try {
-      const response = await fetch('/api/employee/withdraw', {
+      const prepareResponse = await fetch(API.employee.withdrawPrepare, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ payrollRunId: payroll.payrollRunId }),
       });
 
-      const body = await response.json();
+      const prepareBody = await prepareResponse.json();
 
-      if (!response.ok) {
-        throw new Error(body.error || body.message || 'Withdrawal failed');
+      if (!prepareResponse.ok) {
+        throw new Error(prepareBody.error || prepareBody.message || 'Failed to prepare withdrawal');
       }
 
-      setWithdrawSuccess('Withdrawal submitted successfully.');
+      for (const withdrawal of prepareBody.withdrawals) {
+        const signedXdr = await signWithFreighter(withdrawal.unsignedXdr, walletAddress);
+
+        const submitResponse = await fetch(API.employee.withdrawSubmit, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            payrollEmployeeId: withdrawal.payrollEmployeeId,
+            signedXdr,
+          }),
+        });
+
+        const submitBody = await submitResponse.json();
+
+        if (!submitResponse.ok) {
+          throw new Error(submitBody.error || submitBody.message || 'Failed to submit withdrawal');
+        }
+      }
+
+      setWithdrawSuccess('Withdrawal completed successfully.');
       await loadPayroll();
     } catch (withdrawError) {
       setError(

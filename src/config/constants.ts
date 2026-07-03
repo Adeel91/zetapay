@@ -76,5 +76,7 @@ export const API = {
   employee: {
     dashboard: '/api/employee/dashboard',
     payroll: '/api/employee/payroll',
+    withdrawPrepare: '/api/employee/withdraw/prepare',
+    withdrawSubmit: '/api/employee/withdraw/submit',
   },
 } as const;

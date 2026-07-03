@@ -22,6 +22,8 @@ import { zetapayConfig } from '@/lib/zetapay/contracts/config';
 
 export const runtime = 'nodejs';
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 type PayrollCurrency = 'XLM' | 'USDC';
 
 type PoolPayrollRequest = {
@@ -59,6 +61,13 @@ type PoolNotePayload = {
   payeeIndex: number;
   employeeNoteIndex: number;
   denomination: string;
+  proof: JsonValue;
+  publicInputs: JsonValue[];
+};
+
+type PoolNoteDraft = Omit<PoolNotePayload, 'proof' | 'publicInputs'> & {
+  proof?: JsonValue;
+  publicInputs?: JsonValue[];
 };
 
 type StoredPoolPayload = {
@@ -253,10 +262,111 @@ async function loadMerkleHelpers() {
     moduleUrl: string
   ) => Promise<{
     poseidonHash: (values: bigint[]) => Promise<bigint>;
-    buildMerkleTree: (values: string[]) => Promise<{ root: bigint }>;
   }>;
 
   return dynamicImport(moduleUrl);
+}
+
+async function loadSnarkJs() {
+  const dynamicImport = new Function('moduleName', 'return import(moduleName);') as (
+    moduleName: string
+  ) => Promise<{
+    groth16: {
+      fullProve: (
+        input: Record<string, unknown>,
+        wasmPath: string,
+        zkeyPath: string
+      ) => Promise<{
+        proof: JsonValue;
+        publicSignals: string[];
+      }>;
+    };
+  }>;
+
+  return dynamicImport('snarkjs');
+}
+
+async function buildPoseidonMerkleTree(
+  values: string[],
+  poseidonHash: (values: bigint[]) => Promise<bigint>
+) {
+  let current = values.map((value) => BigInt(value || '0'));
+  const levels = [current];
+
+  while (current.length > 1) {
+    const next: bigint[] = [];
+
+    for (let index = 0; index < current.length; index += 2) {
+      next.push(await poseidonHash([current[index], current[index + 1]]));
+    }
+
+    current = next;
+    levels.push(current);
+  }
+
+  return {
+    root: current[0],
+    levels,
+  };
+}
+
+function buildMerkleProof(levels: bigint[][], index: number) {
+  let currentIndex = index;
+  const pathElements: string[] = [];
+  const pathIndices: number[] = [];
+
+  for (let level = 0; level < levels.length - 1; level += 1) {
+    const siblingIndex = currentIndex % 2 === 0 ? currentIndex + 1 : currentIndex - 1;
+
+    pathElements.push(levels[level][siblingIndex].toString());
+    pathIndices.push(currentIndex % 2);
+
+    currentIndex = Math.floor(currentIndex / 2);
+  }
+
+  return {
+    pathElements,
+    pathIndices,
+  };
+}
+
+async function generateWithdrawProof(input: {
+  note: PoolNoteDraft;
+  root: string;
+  pathElements: string[];
+  pathIndices: number[];
+}) {
+  const snarkjs = await loadSnarkJs();
+
+  const wasmPath = path.join(process.cwd(), 'circuits/pool/build/withdraw_js/withdraw.wasm');
+  const zkeyPath = path.join(process.cwd(), 'circuits/pool/build/withdraw_final.zkey');
+
+  const circuitInput = {
+    secret: input.note.secret,
+    nullifier: input.note.nullifier,
+    amount_private: input.note.atomicAmount,
+    token_hash_private: input.note.tokenHash,
+    salt: input.note.salt,
+    path_elements: input.pathElements,
+    path_indices: input.pathIndices,
+    root_public: input.root,
+    nullifier_hash_public: input.note.nullifierHash,
+    recipient_hash_public: input.note.recipientHash,
+    amount_public: input.note.atomicAmount,
+    token_hash_public: input.note.tokenHash,
+    withdrawal_hash_public: input.note.withdrawalHash,
+  };
+
+  const { proof, publicSignals } = await snarkjs.groth16.fullProve(
+    circuitInput,
+    wasmPath,
+    zkeyPath
+  );
+
+  return {
+    proof,
+    publicInputs: publicSignals,
+  };
 }
 
 async function isPoolInitialized(source: string) {
@@ -292,9 +402,9 @@ async function buildPoolPayload({
   }[];
   auditKey: string;
 }): Promise<StoredPoolPayload> {
-  const { poseidonHash, buildMerkleTree } = await loadMerkleHelpers();
+  const { poseidonHash } = await loadMerkleHelpers();
 
-  const notes: PoolNotePayload[] = [];
+  const notes: PoolNoteDraft[] = [];
   let globalNoteIndex = 0;
 
   for (const { item, employee } of orderedItems) {
@@ -356,10 +466,8 @@ async function buildPoolPayload({
   }
 
   if (notes.length > BATCH_SIZE) {
-    return Promise.reject(
-      new Error(
-        `Fixed denomination split created ${notes.length} notes. This endpoint currently supports ${BATCH_SIZE} notes.`
-      )
+    throw new Error(
+      `Fixed denomination split created ${notes.length} notes. This endpoint currently supports ${BATCH_SIZE} notes.`
     );
   }
 
@@ -368,10 +476,32 @@ async function buildPoolPayload({
     ...Array.from({ length: BATCH_SIZE - notes.length }, () => '0'),
   ];
 
-  const tree = await buildMerkleTree(paddedCommitments);
+  const tree = await buildPoseidonMerkleTree(paddedCommitments, poseidonHash);
   const root = tree.root.toString();
 
-  const encryptedNotes = notes.map((note) =>
+  for (const note of notes) {
+    const proofPath = buildMerkleProof(tree.levels, note.payeeIndex);
+
+    const withdrawalProof = await generateWithdrawProof({
+      note,
+      root,
+      pathElements: proofPath.pathElements,
+      pathIndices: proofPath.pathIndices,
+    });
+
+    note.proof = withdrawalProof.proof;
+    note.publicInputs = withdrawalProof.publicInputs;
+  }
+
+  const completeNotes = notes.map((note) => {
+    if (!note.proof || !note.publicInputs) {
+      throw new Error(`Withdraw proof generation failed for note ${note.payeeIndex}`);
+    }
+
+    return note as PoolNotePayload;
+  });
+
+  const encryptedNotes = completeNotes.map((note) =>
     encryptPayload({
       scope: 'shieldedPoolWithdrawalNote',
       enterpriseId: enterprise.id,
@@ -405,9 +535,9 @@ async function buildPoolPayload({
     root,
     totals,
     fixedDenomination: true,
-    noteCount: notes.length,
+    noteCount: completeNotes.length,
     employeeCount: orderedItems.length,
-    notes,
+    notes: completeNotes,
     denominationPolicy: {
       enabled: true,
       atomicScale: Number(ATOMIC_SCALE),
@@ -419,7 +549,7 @@ async function buildPoolPayload({
 
   return {
     root,
-    notes,
+    notes: completeNotes,
     encryptedPayroll,
     encryptedNotes,
     totals,

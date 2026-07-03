@@ -527,13 +527,59 @@ export async function buildFundPayrollXdr(input: FundPayrollInput) {
   }
 }
 
+function fieldToBytes32Hex(value: string) {
+  return BigInt(value).toString(16).padStart(64, '0');
+}
+
+function normalizeBytesHex(value: string) {
+  return value.startsWith('0x') ? value.slice(2) : value;
+}
+
+function normalizeGroth16ProofForSoroban(proof: unknown) {
+  const value = proof as {
+    pi_a?: string[];
+    pi_b?: string[][];
+    pi_c?: string[];
+    a?: string;
+    b?: string;
+    c?: string;
+  };
+
+  if (value.a && value.b && value.c) {
+    return {
+      a: normalizeBytesHex(value.a),
+      b: normalizeBytesHex(value.b),
+      c: normalizeBytesHex(value.c),
+    };
+  }
+
+  if (!value.pi_a || !value.pi_b || !value.pi_c) {
+    throw new Error('Invalid Groth16 proof format.');
+  }
+
+  return {
+    a: normalizeBytesHex(fieldToBytes32Hex(value.pi_a[0]) + fieldToBytes32Hex(value.pi_a[1])),
+    b: normalizeBytesHex(
+      fieldToBytes32Hex(value.pi_b[0][1]) +
+        fieldToBytes32Hex(value.pi_b[0][0]) +
+        fieldToBytes32Hex(value.pi_b[1][1]) +
+        fieldToBytes32Hex(value.pi_b[1][0])
+    ),
+    c: normalizeBytesHex(fieldToBytes32Hex(value.pi_c[0]) + fieldToBytes32Hex(value.pi_c[1])),
+  };
+}
+
 export async function buildWithdrawWithProofXdr(input: WithdrawWithProofInput) {
   validateConfig();
 
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zetapay_pool_withdraw_xdr_'));
 
   try {
-    const proofPath = writeJsonTempFile(tempDir, 'proof.json', input.proof);
+    const proofPath = writeJsonTempFile(
+      tempDir,
+      'proof.json',
+      normalizeGroth16ProofForSoroban(input.proof)
+    );
     const publicInputsPath = writeJsonTempFile(tempDir, 'public_inputs.json', input.publicInputs);
 
     return await runStellarBuildOnly([
