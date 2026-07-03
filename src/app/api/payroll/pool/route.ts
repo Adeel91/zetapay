@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import crypto from 'node:crypto';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { and, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
@@ -21,7 +22,22 @@ import { zetapayConfig } from '@/lib/zetapay/contracts/config';
 
 export const runtime = 'nodejs';
 
+const nodeRequire = createRequire(import.meta.url);
+
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+type SnarkJsModule = {
+  groth16: {
+    fullProve: (
+      input: Record<string, unknown>,
+      wasmPath: string,
+      zkeyPath: string
+    ) => Promise<{
+      proof: JsonValue;
+      publicSignals: string[];
+    }>;
+  };
+};
 
 type PayrollCurrency = 'XLM' | 'USDC';
 
@@ -272,23 +288,8 @@ async function loadMerkleHelpers() {
   };
 }
 
-async function loadSnarkJs() {
-  const dynamicImport = new Function('moduleName', 'return import(moduleName);') as (
-    moduleName: string
-  ) => Promise<{
-    groth16: {
-      fullProve: (
-        input: Record<string, unknown>,
-        wasmPath: string,
-        zkeyPath: string
-      ) => Promise<{
-        proof: JsonValue;
-        publicSignals: string[];
-      }>;
-    };
-  }>;
-
-  return dynamicImport('snarkjs');
+function loadSnarkJs() {
+  return nodeRequire('snarkjs') as SnarkJsModule;
 }
 
 async function buildPoseidonMerkleTree(
@@ -341,7 +342,7 @@ async function generateWithdrawProof(input: {
   pathElements: string[];
   pathIndices: number[];
 }) {
-  const snarkjs = await loadSnarkJs();
+  const snarkjs = loadSnarkJs();
 
   const wasmPath = path.join(process.cwd(), 'circuits/pool/build/withdraw_js/withdraw.wasm');
   const zkeyPath = path.join(process.cwd(), 'circuits/pool/build/withdraw_final.zkey');

@@ -5,6 +5,14 @@ const nextConfig: NextConfig = {
     '/**': [
       './.stellar-cli/**',
 
+      './node_modules/snarkjs/**',
+      './node_modules/ffjavascript/**',
+      './node_modules/fastfile/**',
+      './node_modules/r1csfile/**',
+      './node_modules/blake-hash/**',
+      './node_modules/argparse/**',
+      './node_modules/ejs/**',
+
       './circuits/payroll/build/payroll_js/**',
       './circuits/payroll/build/payroll_final.zkey',
       './circuits/payroll/build/verification_key.json',
