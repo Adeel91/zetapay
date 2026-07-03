@@ -170,6 +170,47 @@ async function runStellarBuildOnly(args: string[]) {
   return await prepareBuiltXdr(rawXdr);
 }
 
+function parseCliJson(output: string) {
+  const lines = output
+    .trim()
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    if (line === 'true') return true;
+    if (line === 'false') return false;
+    if (line === 'None' || line === 'null') return null;
+
+    if (/^\d+$/.test(line)) return Number(line);
+
+    try {
+      return JSON.parse(line);
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error(`Could not parse Stellar CLI output:\n${output}`);
+}
+
+function runStellarRead(args: string[]) {
+  return parseCliJson(
+    runStellar([
+      'contract',
+      'invoke',
+      '--id',
+      zetapayConfig.payrollContractId,
+      '--source-account',
+      args[0],
+      '--network',
+      network(),
+      '--',
+      ...args.slice(1),
+    ])
+  );
+}
+
 function writeJsonTempFile(tempDir: string, name: string, value: unknown) {
   const filePath = path.join(tempDir, name);
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
@@ -244,6 +285,15 @@ function normalizeChainRecord(value: unknown): NormalizedChainPayrollRecord {
       encryptedNotes: record.batch.encrypted_notes.map(bytesToUtf8),
     },
   };
+}
+
+export async function isPayrollContractInitialized(input: { source: string }) {
+  try {
+    const value = runStellarRead([input.source, 'is_initialized']);
+    return Boolean(value);
+  } catch {
+    return false;
+  }
 }
 
 export async function buildInitializePayrollXdr(input: BuildInitializePayrollInput) {

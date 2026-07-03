@@ -13,6 +13,7 @@ export const ROUTES = {
   auth: {
     root: AUTH,
     employerConnect: `${AUTH}/${EMPLOYER}/connect`,
+    employeeConnect: `${AUTH}/${EMPLOYEE}/connect`,
     auditorLogin: `${AUTH}/${AUDITOR}/login`,
     auditorSignup: `${AUTH}/${AUDITOR}/signup`,
   },
@@ -35,6 +36,10 @@ export const ROUTES = {
     verify: `${DASHBOARD}/${AUDITOR}/verify`,
     reports: `${DASHBOARD}/${AUDITOR}/reports`,
     history: `${DASHBOARD}/${AUDITOR}/history`,
+  },
+  employee: {
+    root: `${DASHBOARD}/${EMPLOYEE}`,
+    payroll: `${DASHBOARD}/${EMPLOYEE}/payroll`,
   },
 } as const;
 
@@ -67,5 +72,11 @@ export const API = {
   zk: {
     generate: '/api/zk/generate',
     verify: '/api/zk/verify',
+  },
+  employee: {
+    dashboard: '/api/employee/dashboard',
+    payroll: '/api/employee/payroll',
+    withdrawPrepare: '/api/employee/withdraw/prepare',
+    withdrawSubmit: '/api/employee/withdraw/submit',
   },
 } as const;

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-import { AUDITOR, DASHBOARD, EMPLOYER, ROUTES } from '@/config';
+import { AUDITOR, DASHBOARD, EMPLOYEE, EMPLOYER, ROUTES } from '@/config';
 
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -14,13 +14,19 @@ export function proxy(request: NextRequest) {
   if (!role) {
     const loginUrl = path.startsWith(ROUTES.auditor.root)
       ? ROUTES.auth.auditorLogin
-      : ROUTES.auth.employerConnect;
+      : path.startsWith(ROUTES.employee.root)
+        ? ROUTES.auth.employeeConnect
+        : ROUTES.auth.employerConnect;
 
     return NextResponse.redirect(new URL(loginUrl, request.url));
   }
 
   if (path.startsWith(ROUTES.employer.root) && role !== EMPLOYER) {
     return NextResponse.redirect(new URL(ROUTES.auth.employerConnect, request.url));
+  }
+
+  if (path.startsWith(ROUTES.employee.root) && role !== EMPLOYEE) {
+    return NextResponse.redirect(new URL(ROUTES.auth.employeeConnect, request.url));
   }
 
   if (path.startsWith(ROUTES.auditor.root) && role !== AUDITOR) {

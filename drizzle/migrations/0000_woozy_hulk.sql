@@ -151,7 +151,7 @@ CREATE TABLE "payroll_runs" (
 CREATE TABLE "payroll_settings" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"enterprise_id" integer NOT NULL,
-	"default_currency" varchar(3) DEFAULT 'USDC',
+	"default_currency" varchar(10) DEFAULT 'USDC',
 	"default_tax_filing_status" "tax_filing_status" DEFAULT 'single',
 	"tax_region" varchar(2) DEFAULT 'US',
 	"pay_frequency" varchar(20) DEFAULT 'monthly',

@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Menu, X, LogOut, User, Wallet } from 'lucide-react';
-import { DASHBOARD, AUTH, ROUTES, EMPLOYER, AUDITOR } from '@/config';
+import { LogOut, Menu, User, Wallet, X } from 'lucide-react';
+
+import { AUDITOR, AUTH, DASHBOARD, EMPLOYEE, EMPLOYER, ROUTES } from '@/config';
 import { useWallet } from '@/app/providers';
 
 type UserInfo = {
@@ -17,31 +19,40 @@ interface NavbarProps {
   initialUserInfo: UserInfo;
 }
 
-const getUserInfoFromCookies = (): UserInfo => {
-  if (typeof window === 'undefined') return null;
+let refreshCallback: (() => void) | null = null;
 
-  const getCookie = (name: string) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(';').shift();
-    return null;
-  };
+function shortWallet(wallet: string) {
+  return `${wallet.slice(0, 8)} ... ${wallet.slice(-8)}`;
+}
 
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return null;
+
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+
+  return null;
+}
+
+function getUserInfoFromCookies(): UserInfo {
   const role = getCookie('zetaRole');
   const auditorSession = getCookie('auditorSession');
   const wallet = getCookie('zetaWallet');
 
-  if (role === EMPLOYER && wallet) {
+  if ((role === EMPLOYER || role === EMPLOYEE) && wallet) {
     return {
-      label: `${wallet.slice(0, 8)} ... ${wallet.slice(-8)}`,
+      label: shortWallet(wallet),
       icon: 'Wallet',
-      type: EMPLOYER,
+      type: role,
     };
   }
 
   if (role === AUDITOR && auditorSession) {
     try {
       const session = JSON.parse(decodeURIComponent(auditorSession));
+
       return {
         label: session.email || 'auditor@company.com',
         icon: 'User',
@@ -57,113 +68,130 @@ const getUserInfoFromCookies = (): UserInfo => {
   }
 
   return null;
-};
-
-let refreshCallback: (() => void) | null = null;
+}
 
 export function Navbar({ initialUserInfo }: NavbarProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [userInfo, setUserInfo] = useState<UserInfo>(() => {
-    const cookies = getUserInfoFromCookies();
-    return cookies || initialUserInfo;
-  });
   const pathname = usePathname();
   const { disconnect } = useWallet();
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [userInfo, setUserInfo] = useState<UserInfo>(initialUserInfo);
 
   const isDashboard = pathname?.startsWith(DASHBOARD);
   const isAuthPage = pathname === AUTH || pathname?.startsWith(`${AUTH}/`);
   const isLanding = pathname === '/';
+  const isConnected = Boolean(userInfo);
 
   useEffect(() => {
-    refreshCallback = () => {
-      const newUserInfo = getUserInfoFromCookies();
-      setUserInfo(newUserInfo);
+    const refresh = () => {
+      window.queueMicrotask(() => {
+        setUserInfo(getUserInfoFromCookies());
+      });
     };
+
+    refresh();
+    refreshCallback = refresh;
+
+    const interval = window.setInterval(refresh, 1000);
+
     return () => {
       refreshCallback = null;
+      window.clearInterval(interval);
     };
   }, []);
 
-  useEffect(() => {
-    const handleCookieChange = () => {
-      setUserInfo(getUserInfoFromCookies());
-    };
-
-    const interval = setInterval(handleCookieChange, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleGetStarted = () => {
+  function handleGetStarted() {
     window.location.href = AUTH;
-  };
+  }
 
-  const handleLogout = () => {
+  function handleLogout() {
     disconnect();
     setIsOpen(false);
     setUserInfo(null);
-  };
+  }
 
-  const getDashboardHref = () => {
-    if (userInfo?.type === EMPLOYER) {
-      return ROUTES.employer.root;
-    }
+  function getDashboardHref() {
+    if (userInfo?.type === EMPLOYER) return ROUTES.employer.root;
+    if (userInfo?.type === EMPLOYEE) return ROUTES.employee.root;
     return ROUTES.auditor.root;
-  };
+  }
 
-  const isConnected = !!userInfo;
-
-  const renderNavLinks = () => {
+  function renderNavLinks() {
     if (isAuthPage) return null;
+    if (!isConnected || !userInfo) return null;
 
-    if (isConnected && userInfo) {
-      if (userInfo.type === EMPLOYER) {
-        return (
-          <>
-            <Link
-              href={ROUTES.employer.root}
-              className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href={ROUTES.employer.employees}
-              className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
-            >
-              Employees
-            </Link>
-            <Link
-              href={ROUTES.employer.payroll}
-              className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
-            >
-              Payroll
-            </Link>
-          </>
-        );
-      }
-
+    if (userInfo.type === EMPLOYER) {
       return (
-        <Link
-          href={getDashboardHref()}
-          className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
-        >
-          Dashboard
-        </Link>
+        <>
+          <Link
+            href={ROUTES.employer.root}
+            className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
+          >
+            Dashboard
+          </Link>
+
+          <Link
+            href={ROUTES.employer.employees}
+            className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
+          >
+            Employees
+          </Link>
+
+          <Link
+            href={ROUTES.employer.payroll}
+            className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
+          >
+            Payroll
+          </Link>
+        </>
       );
     }
-  };
 
-  const renderLaunchButton = () => {
+    if (userInfo.type === EMPLOYEE) {
+      return (
+        <>
+          <Link
+            href={ROUTES.employee.root}
+            className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
+          >
+            Dashboard
+          </Link>
+
+          <Link
+            href={ROUTES.employee.payroll}
+            className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
+          >
+            Payroll
+          </Link>
+        </>
+      );
+    }
+
+    return (
+      <Link
+        href={ROUTES.auditor.root}
+        className="text-sm font-medium text-slate-600 transition-colors hover:text-emerald-600"
+      >
+        Dashboard
+      </Link>
+    );
+  }
+
+  function renderLaunchButton() {
     if (isAuthPage) return null;
 
     if (isConnected && userInfo) {
       const Icon = userInfo.icon === 'Wallet' ? Wallet : User;
+
       return (
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5">
             <Icon className="h-3.5 w-3.5 text-slate-500" />
             <span className="text-xs text-slate-600">{userInfo.label}</span>
           </div>
+
           <button
+            type="button"
             onClick={handleLogout}
             className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-all hover:border-red-500 hover:text-red-500"
           >
@@ -176,15 +204,16 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
 
     return (
       <button
+        type="button"
         onClick={handleGetStarted}
         className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-600/30 transition-all hover:bg-emerald-700"
       >
         Get Started
       </button>
     );
-  };
+  }
 
-  const renderMobileNavLinks = () => {
+  function renderMobileNavLinks() {
     if (isAuthPage) return null;
 
     if (isConnected && userInfo) {
@@ -197,10 +226,43 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
           >
             Dashboard
           </Link>
+
+          {userInfo.type === EMPLOYER && (
+            <>
+              <Link
+                href={ROUTES.employer.employees}
+                className="text-sm font-medium text-slate-600 hover:text-emerald-600"
+                onClick={() => setIsOpen(false)}
+              >
+                Employees
+              </Link>
+
+              <Link
+                href={ROUTES.employer.payroll}
+                className="text-sm font-medium text-slate-600 hover:text-emerald-600"
+                onClick={() => setIsOpen(false)}
+              >
+                Payroll
+              </Link>
+            </>
+          )}
+
+          {userInfo.type === EMPLOYEE && (
+            <Link
+              href={ROUTES.employee.payroll}
+              className="text-sm font-medium text-slate-600 hover:text-emerald-600"
+              onClick={() => setIsOpen(false)}
+            >
+              Payroll
+            </Link>
+          )}
+
           <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-600">
             <span>{userInfo.label}</span>
           </div>
+
           <button
+            type="button"
             onClick={handleLogout}
             className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-medium text-red-600"
           >
@@ -222,16 +284,9 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
             Home
           </Link>
         )}
-        {!isLanding && (
-          <Link
-            href={ROUTES.auth.auditorLogin}
-            className="text-sm font-medium text-slate-600 hover:text-emerald-600"
-            onClick={() => setIsOpen(false)}
-          >
-            Auditor
-          </Link>
-        )}
+
         <button
+          type="button"
           onClick={() => {
             handleGetStarted();
             setIsOpen(false);
@@ -242,17 +297,33 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
         </button>
       </>
     );
-  };
+  }
 
   return (
     <nav className="fixed top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-      <div className={`mx-auto px-4 sm:px-6 lg:px-8 ${isDashboard ? 'max-w-full' : 'max-w-7xl'}`}>
+      <div
+        className={`mx-auto px-4 sm:px-6 lg:px-8 ${isDashboard ? 'max-w-full' : 'max-w-[1560px] px-6 sm:px-8 lg:px-12 xl:px-16'}`}
+      >
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 shadow-lg shadow-emerald-600/30">
-              <span className="text-base font-bold text-white">Z</span>
+          <Link href="/" className="flex items-center gap-1.5">
+            <Image
+              src="/logo.svg"
+              alt="ZetaPay"
+              width={36}
+              height={36}
+              priority
+              className="h-10 w-10"
+            />
+
+            <div className="flex flex-col leading-none">
+              <span className="text-2xl font-extrabold tracking-tight text-slate-900">
+                Zeta<span className="text-emerald-600">Pay</span>
+              </span>
+
+              <span className="text-[10px] font-semibold tracking-[0.32em] text-slate-500 uppercase">
+                Verified Payroll
+              </span>
             </div>
-            <span className="text-xl font-bold text-slate-900">ZetaPay</span>
           </Link>
 
           <div className="hidden items-center gap-8 md:flex">
@@ -261,7 +332,11 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
           </div>
 
           {!isAuthPage && (
-            <button className="text-slate-900 md:hidden" onClick={() => setIsOpen(!isOpen)}>
+            <button
+              type="button"
+              className="text-slate-900 md:hidden"
+              onClick={() => setIsOpen((value) => !value)}
+            >
               {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           )}
@@ -278,7 +353,5 @@ export function Navbar({ initialUserInfo }: NavbarProps) {
 }
 
 export const refreshNavbarGlobal = () => {
-  if (refreshCallback) {
-    refreshCallback();
-  }
+  refreshCallback?.();
 };

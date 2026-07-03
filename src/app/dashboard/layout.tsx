@@ -14,6 +14,7 @@ import {
   X,
   Key,
   WalletCards,
+  Banknote,
 } from 'lucide-react';
 
 import { ROUTES } from '@/config';
@@ -25,6 +26,11 @@ const employerNav = [
   { name: 'Payroll', href: ROUTES.employer.payroll, icon: WalletCards },
   { name: 'History', href: ROUTES.employer.history, icon: History },
   { name: 'Settings', href: ROUTES.employer.settings, icon: Settings },
+];
+
+const employeeNav = [
+  { name: 'Dashboard', href: ROUTES.employee.root, icon: LayoutDashboard },
+  { name: 'Payroll', href: ROUTES.employee.payroll, icon: Banknote },
 ];
 
 const auditorNav = [
@@ -44,8 +50,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isEmployer = pathname.startsWith(ROUTES.employer.root);
+  const isEmployee = pathname.startsWith(ROUTES.employee.root);
   const isAuditor = pathname.startsWith(ROUTES.auditor.root);
-  const navItems = isEmployer ? employerNav : isAuditor ? auditorNav : [];
+
+  const navItems = isEmployer
+    ? employerNav
+    : isEmployee
+      ? employeeNav
+      : isAuditor
+        ? auditorNav
+        : [];
 
   async function handleLogout() {
     if (isAuditor) {
@@ -58,6 +72,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     clearCookie('zetaWallet');
     clearCookie('zetaRole');
+    clearCookie('enterpriseId');
+    clearCookie('employeeId');
     router.push('/');
   }
 
@@ -90,7 +106,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <nav className="space-y-1">
               {navItems.map((item) => {
                 const isRoot =
-                  item.href === ROUTES.employer.root || item.href === ROUTES.auditor.root;
+                  item.href === ROUTES.employer.root ||
+                  item.href === ROUTES.employee.root ||
+                  item.href === ROUTES.auditor.root;
+
                 const isActive =
                   pathname === item.href || (!isRoot && pathname.startsWith(item.href));
 

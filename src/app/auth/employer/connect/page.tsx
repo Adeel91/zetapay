@@ -1,5 +1,5 @@
-import EmployerConnect from '@/components/auth/EmployerConnect';
+import WalletConnect from '@/components/auth/WalletConnect';
 
 export default function EmployerConnectPage() {
-  return <EmployerConnect />;
+  return <WalletConnect mode="employer" />;
 }

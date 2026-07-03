@@ -6,11 +6,48 @@ import { Navbar } from '@/components/shared/Navbar';
 import { EMPLOYER, AUDITOR } from '@/config';
 
 export const metadata: Metadata = {
-  title: 'ZetaPay | Private payroll verification on Stellar',
+  title: {
+    default: 'ZetaPay | Verified Payroll on Stellar',
+    template: '%s | ZetaPay',
+  },
+
   description:
-    'ZetaPay helps employers create private payroll commitments, employee payslip verification links, public proof metadata, and controlled auditor reports.',
-  keywords:
-    'ZetaPay, private payroll, Stellar, Soroban, zero knowledge proofs, Merkle payroll, encrypted verification',
+    'ZetaPay is a payroll verification platform built on Stellar and Soroban, enabling verified payroll settlements, shielded payments, and zero knowledge proof based verification.',
+
+  keywords: [
+    'ZetaPay',
+    'Verified Payroll',
+    'Payroll Verification',
+    'Stellar',
+    'Soroban',
+    'Zero Knowledge Proofs',
+    'Groth16',
+    'Shielded Payments',
+    'Blockchain Payroll',
+    'Merkle Trees',
+    'Cryptography',
+  ],
+
+  icons: {
+    icon: [
+      {
+        url: '/favicon.ico',
+      },
+      {
+        url: '/favicon.svg',
+        type: 'image/svg+xml',
+      },
+      {
+        url: '/favicon-96x96.png',
+        sizes: '96x96',
+        type: 'image/png',
+      },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
+
+  manifest: '/site.webmanifest',
 };
 
 type UserInfo = {

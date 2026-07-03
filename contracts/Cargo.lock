@@ -1901,6 +1901,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "zetapay-pool"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "zetapay-verifier",
+]
+
+[[package]]
 name = "zetapay-verifier"
 version = "0.1.0"
 dependencies = [

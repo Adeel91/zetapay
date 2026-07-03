@@ -149,20 +149,6 @@ function assertWalletMatchesEnterprise(
   }
 }
 
-function hasInitializedCurrentPayrollContract(records: Array<typeof payrollRuns.$inferSelect>) {
-  const currentPayrollContractId = process.env.ZETAPAY_PAYROLL_CONTRACT_ID;
-
-  return records.some((record) => {
-    if (!isRecord(record.metadata)) return false;
-
-    const soroban = record.metadata.soroban;
-
-    if (!isRecord(soroban)) return false;
-
-    return soroban.initialized === true && soroban.payrollContractId === currentPayrollContractId;
-  });
-}
-
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -388,26 +374,39 @@ async function preparePayroll(
     encryptedNotes,
   };
 
-  const previousPayrollRuns = await db
-    .select()
-    .from(payrollRuns)
-    .where(eq(payrollRuns.enterpriseId, enterprise.id))
-    .execute();
+  let initialized = true;
+  let initializeXdr: string | null = null;
+  let submitXdr: string | null = null;
 
-  const initialized = hasInitializedCurrentPayrollContract(previousPayrollRuns);
+  try {
+    submitXdr = await buildSubmitAndExecutePayrollBatchXdr({
+      employer: enterprise.walletAddress,
+      ...sorobanPayload,
+    });
+  } catch {
+    initialized = false;
 
-  const initializeXdr = initialized
-    ? null
-    : await buildInitializePayrollXdr({
+    try {
+      initializeXdr = await buildInitializePayrollXdr({
         employer: enterprise.walletAddress,
       });
+    } catch (initializeError) {
+      const message =
+        initializeError instanceof Error ? initializeError.message : String(initializeError);
 
-  const submitXdr = initialized
-    ? await buildSubmitAndExecutePayrollBatchXdr({
-        employer: enterprise.walletAddress,
-        ...sorobanPayload,
-      })
-    : null;
+      if (message.includes('Error(Contract, #2)')) {
+        initialized = true;
+        initializeXdr = null;
+
+        submitXdr = await buildSubmitAndExecutePayrollBatchXdr({
+          employer: enterprise.walletAddress,
+          ...sorobanPayload,
+        });
+      } else {
+        throw initializeError;
+      }
+    }
+  }
 
   const [payrollRun] = await db
     .insert(payrollRuns)

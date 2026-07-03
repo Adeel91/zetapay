@@ -114,3 +114,12 @@ body {
 .delay-500 {
   animation-delay: 500ms;
 }
+
+@keyframes flowWidth {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
