@@ -55,18 +55,50 @@ function parseTransactionXdr(xdrString: string) {
   return parsed;
 }
 
-function runStellar(args: string[]) {
-  log('stellar command', `stellar ${args.join(' ')}`);
+function getStellarBinaryPath() {
+  const candidates = [
+    path.join(process.cwd(), '.stellar-cli', 'stellar'),
+    path.join(process.cwd(), '.stellar-cli', 'bin', 'stellar'),
+  ];
 
-  const result = spawnSync('stellar', args, {
+  const bundledBinary = candidates.find((candidate) => fs.existsSync(candidate));
+
+  if (bundledBinary) {
+    try {
+      fs.chmodSync(bundledBinary, 0o755);
+    } catch {
+      // Ignore chmod failures and let spawnSync report the real error if execution fails.
+    }
+
+    return bundledBinary;
+  }
+
+  return 'stellar';
+}
+
+function runStellar(args: string[]) {
+  const stellarBinary = getStellarBinaryPath();
+
+  log('stellar command', `${stellarBinary} ${args.join(' ')}`);
+
+  const result = spawnSync(stellarBinary, args, {
     cwd: process.cwd(),
     encoding: 'utf8',
+    env: process.env,
   });
 
   const output = `${result.stdout || ''}\n${result.stderr || ''}`.trim();
 
+  if (result.error) {
+    console.error('[zetapay] stellar spawn error', result.error);
+    throw new Error(`Stellar CLI spawn failed: ${result.error.message}`);
+  }
+
   if (result.status !== 0) {
-    log('stellar command failed', output);
+    console.error('[zetapay] stellar exit status', result.status);
+    console.error('[zetapay] stellar stdout', result.stdout || '');
+    console.error('[zetapay] stellar stderr', result.stderr || '');
+
     throw new Error(output || 'Stellar command failed');
   }
 

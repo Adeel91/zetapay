@@ -1,14 +1,16 @@
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 import {
   Address,
   Contract,
+  nativeToScVal,
   Networks,
+  scValToNative,
   Transaction,
   TransactionBuilder,
-  nativeToScVal,
-  scValToNative,
-  xdr,
 } from '@stellar/stellar-sdk';
 import { Server as StellarRpcServer } from '@stellar/stellar-sdk/rpc';
 
@@ -68,6 +70,15 @@ export type NormalizedChainPayrollRecord = {
   };
 };
 
+function log(label: string, value?: unknown) {
+  if (value === undefined) {
+    console.log(`[zetapay] ${label}`);
+    return;
+  }
+
+  console.log(`[zetapay] ${label}`, value);
+}
+
 function network() {
   return process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet';
 }
@@ -80,8 +91,8 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function parseTransactionXdr(xdrValue: string) {
-  const parsed = TransactionBuilder.fromXDR(xdrValue.trim(), networkPassphrase());
+function parseTransactionXdr(xdr: string) {
+  const parsed = TransactionBuilder.fromXDR(xdr.trim(), networkPassphrase());
 
   if (!(parsed instanceof Transaction)) {
     throw new Error('Fee bump transaction XDR is not supported in this payroll flow.');
@@ -90,47 +101,146 @@ function parseTransactionXdr(xdrValue: string) {
   return parsed;
 }
 
-function addressScVal(value: string) {
-  return new Address(value).toScVal();
+function getStellarBinaryPath() {
+  const candidates = [
+    path.join(process.cwd(), '.stellar-cli', 'stellar'),
+    path.join(process.cwd(), '.stellar-cli', 'bin', 'stellar'),
+  ];
+
+  const bundledBinary = candidates.find((candidate) => fs.existsSync(candidate));
+
+  if (bundledBinary) {
+    return bundledBinary;
+  }
+
+  return 'stellar';
 }
 
-function symbolScVal(value: string) {
-  return xdr.ScVal.scvSymbol(value);
+function runStellar(args: string[]) {
+  const stellarBinary = getStellarBinaryPath();
+
+  log('stellar command', `${stellarBinary} ${args.join(' ')}`);
+
+  const result = spawnSync(stellarBinary, args, {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    env: process.env,
+  });
+
+  const output = `${result.stdout || ''}\n${result.stderr || ''}`.trim();
+
+  if (result.error) {
+    console.error('[zetapay] stellar spawn error', result.error);
+    throw new Error(`Stellar CLI spawn failed: ${result.error.message}`);
+  }
+
+  if (result.status !== 0) {
+    console.error('[zetapay] stellar exit status', result.status);
+    console.error('[zetapay] stellar stdout', result.stdout || '');
+    console.error('[zetapay] stellar stderr', result.stderr || '');
+
+    throw new Error(output || 'Stellar command failed');
+  }
+
+  return output;
 }
 
-function bytesScVal(value: string) {
-  return xdr.ScVal.scvBytes(Buffer.from(value, 'utf8'));
+function extractTransactionXdr(output: string) {
+  const lines = output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const candidates = lines.filter((line) => /^[A-Za-z0-9+/=]+$/.test(line) && line.length > 100);
+
+  for (let index = candidates.length - 1; index >= 0; index -= 1) {
+    const candidate = candidates[index];
+
+    try {
+      parseTransactionXdr(candidate);
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error(`Could not find valid transaction XDR in Stellar CLI output:\n${output}`);
 }
 
-function hexBytesScVal(value: string) {
-  return xdr.ScVal.scvBytes(Buffer.from(value, 'hex'));
+function addTimeoutToBuiltTransaction(rawXdr: string) {
+  const transaction = parseTransactionXdr(rawXdr);
+  const maxTime = Math.floor(Date.now() / 1000) + TX_TIMEOUT_SECONDS;
+
+  return TransactionBuilder.cloneFrom(transaction, {
+    fee: CONTRACT_FEE,
+    networkPassphrase: networkPassphrase(),
+    timebounds: {
+      minTime: 0,
+      maxTime,
+    },
+  }).build();
 }
 
-function decimalScVal(value: string | number | bigint) {
-  return nativeToScVal(BigInt(value), { type: 'u256' });
+async function prepareBuiltXdr(rawXdr: string) {
+  validateConfig();
+
+  const server = new StellarRpcServer(zetapayConfig.rpcUrl);
+  const transactionWithTimeout = addTimeoutToBuiltTransaction(rawXdr);
+  const prepared = await server.prepareTransaction(transactionWithTimeout);
+
+  return prepared.toXDR();
 }
 
-function u32ScVal(value: string | number | bigint) {
-  return nativeToScVal(Number(value), { type: 'u32' });
+async function runStellarBuildOnly(args: string[]) {
+  const rawXdr = extractTransactionXdr(runStellar(args));
+  return await prepareBuiltXdr(rawXdr);
 }
 
-function u64ScVal(value: string | number | bigint) {
-  return nativeToScVal(BigInt(value), { type: 'u64' });
+function parseCliJson(output: string) {
+  const lines = output
+    .trim()
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    if (line === 'true') return true;
+    if (line === 'false') return false;
+    if (line === 'None' || line === 'null') return null;
+
+    if (/^\d+$/.test(line)) return Number(line);
+
+    try {
+      return JSON.parse(line);
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error(`Could not parse Stellar CLI output:\n${output}`);
 }
 
-function vecScVal(values: xdr.ScVal[]) {
-  return xdr.ScVal.scvVec(values);
-}
-
-function mapScVal(entries: Record<string, xdr.ScVal>) {
-  return xdr.ScVal.scvMap(
-    Object.entries(entries).map(([key, value]) => {
-      return new xdr.ScMapEntry({
-        key: symbolScVal(key),
-        val: value,
-      });
-    })
+function runStellarRead(args: string[]) {
+  return parseCliJson(
+    runStellar([
+      'contract',
+      'invoke',
+      '--id',
+      zetapayConfig.payrollContractId,
+      '--source-account',
+      args[0],
+      '--network',
+      network(),
+      '--',
+      ...args.slice(1),
+    ])
   );
+}
+
+function writeJsonTempFile(tempDir: string, name: string, value: unknown) {
+  const filePath = path.join(tempDir, name);
+  fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+  return filePath;
 }
 
 function stringToBytesHex(value: string) {
@@ -203,75 +313,10 @@ function normalizeChainRecord(value: unknown): NormalizedChainPayrollRecord {
   };
 }
 
-async function buildPreparedContractXdr(input: {
-  source: string;
-  method: string;
-  args: xdr.ScVal[];
-}) {
-  validateConfig();
-
-  const server = new StellarRpcServer(zetapayConfig.rpcUrl);
-  const account = await server.getAccount(input.source);
-  const contract = new Contract(zetapayConfig.payrollContractId);
-
-  const transaction = new TransactionBuilder(account, {
-    fee: CONTRACT_FEE,
-    networkPassphrase: networkPassphrase(),
-  })
-    .addOperation(contract.call(input.method, ...input.args))
-    .setTimeout(TX_TIMEOUT_SECONDS)
-    .build();
-
-  const prepared = await server.prepareTransaction(transaction);
-
-  return prepared.toXDR();
-}
-
-function verificationKeyScVal(value: unknown) {
-  return nativeToScVal(value);
-}
-
-function proofScVal(proof: SubmitPayrollBatchInput['proof']) {
-  return mapScVal({
-    a: hexBytesScVal(proof.a),
-    b: hexBytesScVal(proof.b),
-    c: hexBytesScVal(proof.c),
-  });
-}
-
-function paymentScVal(payment: SorobanPayrollPayment) {
-  return mapScVal({
-    payee_id: u64ScVal(payment.payee_id),
-    recipient: addressScVal(payment.recipient),
-    amount: decimalScVal(payment.amount),
-    token: symbolScVal(payment.token),
-    payee_type: symbolScVal(payment.payee_type),
-  });
-}
-
 export async function isPayrollContractInitialized(input: { source: string }) {
   try {
-    validateConfig();
-
-    const server = new StellarRpcServer(zetapayConfig.rpcUrl);
-    const account = await server.getAccount(input.source);
-    const contract = new Contract(zetapayConfig.payrollContractId);
-
-    const transaction = new TransactionBuilder(account, {
-      fee: CONTRACT_FEE,
-      networkPassphrase: networkPassphrase(),
-    })
-      .addOperation(contract.call('is_initialized'))
-      .setTimeout(TX_TIMEOUT_SECONDS)
-      .build();
-
-    const simulated = await server.simulateTransaction(transaction);
-
-    if (!('result' in simulated) || !simulated.result?.retval) {
-      return false;
-    }
-
-    return Boolean(scValToNative(simulated.result.retval));
+    const value = runStellarRead([input.source, 'is_initialized']);
+    return Boolean(value);
   } catch {
     return false;
   }
@@ -285,18 +330,39 @@ export async function buildInitializePayrollXdr(input: BuildInitializePayrollInp
     path.join(process.cwd(), 'circuits/payroll/build/verification_key.json');
 
   const verificationKey = loadSorobanVerificationKey(verificationKeyPath);
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zetapay-init-xdr-'));
 
-  return buildPreparedContractXdr({
-    source: input.employer,
-    method: 'initialize',
-    args: [
-      addressScVal(input.employer),
-      addressScVal(zetapayConfig.verifierContractId),
-      addressScVal(zetapayConfig.xlmTokenContract),
-      addressScVal(zetapayConfig.usdcTokenContract),
-      verificationKeyScVal(verificationKey),
-    ],
-  });
+  try {
+    const vkFilePath = writeJsonTempFile(tempDir, 'verification-key.json', verificationKey);
+
+    return await runStellarBuildOnly([
+      'contract',
+      'invoke',
+      '--build-only',
+      '--id',
+      zetapayConfig.payrollContractId,
+      '--source-account',
+      input.employer,
+      '--network',
+      network(),
+      '--fee',
+      CONTRACT_FEE,
+      '--',
+      'initialize',
+      '--employer',
+      input.employer,
+      '--verifier',
+      zetapayConfig.verifierContractId,
+      '--xlm_token',
+      zetapayConfig.xlmTokenContract,
+      '--usdc_token',
+      zetapayConfig.usdcTokenContract,
+      '--vk-file-path',
+      vkFilePath,
+    ]);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 }
 
 export async function buildSubmitAndExecutePayrollBatchXdr(input: SubmitPayrollBatchInput) {
@@ -310,24 +376,60 @@ export async function buildSubmitAndExecutePayrollBatchXdr(input: SubmitPayrollB
     throw new Error('encryptedNotes are required');
   }
 
-  return buildPreparedContractXdr({
-    source: input.employer,
-    method: 'submit_and_execute_batch',
-    args: [
-      addressScVal(input.employer),
-      vecScVal(input.payments.map(paymentScVal)),
-      proofScVal(input.proof),
-      vecScVal(input.publicInputs.map(decimalScVal)),
-      hexBytesScVal(input.payrollRunHashHex),
-      decimalScVal(input.payrollRunHashField),
-      u32ScVal(input.periodId),
-      u32ScVal(input.batchIndex),
-      u32ScVal(input.batchCount),
-      decimalScVal(input.commitmentRootHex),
-      hexBytesScVal(stringToBytesHex(input.encryptedPayroll)),
-      vecScVal(input.encryptedNotes.map((note) => hexBytesScVal(stringToBytesHex(note)))),
-    ],
-  });
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zetapay-submit-execute-xdr-'));
+
+  try {
+    const paymentsPath = writeJsonTempFile(tempDir, 'payments.json', input.payments);
+    const proofPath = writeJsonTempFile(tempDir, 'proof.json', input.proof);
+    const publicInputsPath = writeJsonTempFile(tempDir, 'public-inputs.json', input.publicInputs);
+    const encryptedNotesPath = writeJsonTempFile(
+      tempDir,
+      'encrypted-notes.json',
+      input.encryptedNotes.map(stringToBytesHex)
+    );
+
+    return await runStellarBuildOnly([
+      'contract',
+      'invoke',
+      '--build-only',
+      '--id',
+      zetapayConfig.payrollContractId,
+      '--source-account',
+      input.employer,
+      '--network',
+      network(),
+      '--fee',
+      CONTRACT_FEE,
+      '--',
+      'submit_and_execute_batch',
+      '--employer',
+      input.employer,
+      '--payments-file-path',
+      paymentsPath,
+      '--proof-file-path',
+      proofPath,
+      '--public_inputs-file-path',
+      publicInputsPath,
+      '--payroll_run_hash',
+      input.payrollRunHashHex,
+      '--payroll_run_hash_field',
+      input.payrollRunHashField,
+      '--period_id',
+      input.periodId,
+      '--batch_index',
+      String(input.batchIndex),
+      '--batch_count',
+      String(input.batchCount),
+      '--commitment_root',
+      input.commitmentRootHex,
+      '--encrypted_payroll',
+      stringToBytesHex(input.encryptedPayroll),
+      '--encrypted_notes-file-path',
+      encryptedNotesPath,
+    ]);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 }
 
 export async function getPayrollRecordFromChain(input: { employer: string; batchId: number }) {
@@ -339,7 +441,7 @@ export async function getPayrollRecordFromChain(input: { employer: string; batch
 
   const operation = contract.call(
     'get_payroll_record',
-    addressScVal(input.employer),
+    new Address(input.employer).toScVal(),
     nativeToScVal(input.batchId, { type: 'u64' })
   );
 

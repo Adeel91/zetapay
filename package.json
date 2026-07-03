@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
-    "build": "next build",
+    "build": "node scripts/install-stellar-cli.mjs && next build",
     "start": "next start",
     "lint": "eslint --fix . && prettier --write .",
     "lint:rust": "cd contracts && cargo clippy --target wasm32-unknown-unknown -- -D warnings && cargo fmt --all -- --check",
