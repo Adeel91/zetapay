@@ -17,6 +17,24 @@ const BATCH_SIZE = 128;
 
 type PayeeType = 'employee' | 'contractor' | 'freelancer' | 'vendor' | 'consultant' | 'contributor';
 
+type SnarkJsProof = {
+  pi_a: string[];
+  pi_b: string[][];
+  pi_c: string[];
+};
+
+type SnarkJsModule = {
+  groth16: {
+    prove: (
+      zkeyFileName: string,
+      witnessFileName: string
+    ) => Promise<{
+      proof: SnarkJsProof;
+      publicSignals: string[];
+    }>;
+  };
+};
+
 export type PayrollProofPayee = {
   personId: string;
   employeeId: number;
@@ -84,8 +102,10 @@ function runCommand(command: string, args: string[]) {
   }
 }
 
-function getSnarkjsCliPath() {
-  return nodeRequire.resolve('snarkjs/build/cli.cjs');
+async function generateGroth16Proof(payrollZkeyPath: string, witnessPath: string) {
+  const snarkjs = nodeRequire('snarkjs') as SnarkJsModule;
+
+  return snarkjs.groth16.prove(payrollZkeyPath, witnessPath);
 }
 
 function sha256Hex(value: string) {
@@ -454,8 +474,6 @@ export async function generatePayrollProof({
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zetapay-proof-'));
   const inputPath = path.join(tempDir, 'input.json');
   const witnessPath = path.join(tempDir, 'witness.wtns');
-  const proofPath = path.join(tempDir, 'proof.json');
-  const publicPath = path.join(tempDir, 'public.json');
 
   fs.writeFileSync(inputPath, JSON.stringify(inputJson, null, 2));
 
@@ -464,25 +482,10 @@ export async function generatePayrollProof({
   try {
     runCommand('node', [witnessGeneratorPath, payrollWasmPath, inputPath, witnessPath]);
 
-    const snarkjsCliPath = getSnarkjsCliPath();
-
-    runCommand('node', [
-      snarkjsCliPath,
-      'groth16',
-      'prove',
+    const { proof: proofJson, publicSignals: publicJson } = await generateGroth16Proof(
       payrollZkeyPath,
-      witnessPath,
-      proofPath,
-      publicPath,
-    ]);
-
-    const proofJson = JSON.parse(fs.readFileSync(proofPath, 'utf8')) as {
-      pi_a: string[];
-      pi_b: string[][];
-      pi_c: string[];
-    };
-
-    const publicJson = JSON.parse(fs.readFileSync(publicPath, 'utf8')) as string[];
+      witnessPath
+    );
 
     return {
       proof: {
